@@ -294,6 +294,36 @@
             transform: translateY(-1px);
         }
 
+        .button-encrypt {
+            background: rgba(30, 58, 138, 0.9);
+            color: #ffffff;
+            font-size: 15px;
+            padding: 14px 28px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+        }
+
+        .button-encrypt:hover:not(:disabled) {
+            background: rgba(37, 99, 235, 1);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .button-encrypt:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .button-encrypt.encrypted {
+            background: rgba(52, 199, 89, 0.9);
+            box-shadow: 0 2px 8px rgba(52, 199, 89, 0.3);
+        }
+
+        .button-encrypt.encrypted:hover:not(:disabled) {
+            background: rgba(52, 199, 89, 1);
+            box-shadow: 0 4px 12px rgba(52, 199, 89, 0.35);
+        }
+
         @keyframes pulse-button {
             0%, 100% { 
                 transform: scale(1);
@@ -854,6 +884,7 @@
         .audio-preview-controls {
             display: flex;
             gap: 12px;
+            flex-wrap: wrap;
         }
 
         .button-play, .button-pause {
@@ -1162,9 +1193,13 @@
                                 <span class="size-label">Size:</span>
                                 <span id="audio-size-text">--</span>
                             </div>
+                            <div id="encryption-status" style="display: none; padding: 12px 16px; background: rgba(59, 130, 246, 0.1); border-radius: 10px; border-left: 2px solid rgba(59, 130, 246, 0.4); margin: 12px 0; font-size: 13px; color: rgba(255, 255, 255, 0.9);">
+                                <span style="font-weight: 600;">🔒 Encrypted</span>
+                            </div>
                             <div class="audio-preview-controls">
                                 <button id="play-audio-btn" class="button button-play">Play</button>
                                 <button id="pause-audio-btn" class="button button-pause" style="display: none;">Pause</button>
+                                <button id="encrypt-audio-btn" class="button button-encrypt">Encrypt Audio</button>
                                 <audio id="recorded-audio-player" style="display: none;"></audio>
                             </div>
                         </div>
@@ -1342,6 +1377,9 @@
         let recordingStartTime = null;
         let recordingDuration = 0;
         let audioPlayer = null;
+        let isAudioEncrypted = false;
+        let encryptedAudioBlob = null;
+        let encryptionKey = null;
 
         // Initialize visualizer
         function initVisualizer() {
@@ -1903,7 +1941,14 @@
         
         document.getElementById('play-audio-btn').addEventListener('click', () => {
             if (audioPlayer) {
-                audioPlayer.play();
+                // If encrypted, play the encrypted audio (which will sound like noise)
+                // If not encrypted, play the original
+                audioPlayer.play().catch(err => {
+                    console.error('Error playing audio:', err);
+                    if (isAudioEncrypted) {
+                        updateStatus('Playing encrypted audio (will sound distorted)', 'connected');
+                    }
+                });
                 document.getElementById('play-audio-btn').style.display = 'none';
                 document.getElementById('pause-audio-btn').style.display = 'inline-block';
             }
@@ -1922,6 +1967,8 @@
             document.getElementById('play-audio-btn').style.display = 'inline-block';
             document.getElementById('pause-audio-btn').style.display = 'none';
         });
+
+        document.getElementById('encrypt-audio-btn').addEventListener('click', encryptAudio);
 
         async function startRecording() {
             if (isRecording) return;
@@ -1990,6 +2037,11 @@
                 currentSNR = null;
                 currentBitrate = null;
                 updateQualityMetrics(null, null, null);
+                
+                // Reset encryption state
+                isAudioEncrypted = false;
+                encryptedAudioBlob = null;
+                encryptionKey = null;
                 
                 // Start recording
                 mediaRecorder.start(100); // Collect data every 100ms
@@ -2097,26 +2149,153 @@
             const panel = document.getElementById('recorded-audio-panel');
             const durationText = document.getElementById('audio-duration-text');
             const sizeText = document.getElementById('audio-size-text');
+            const encryptBtn = document.getElementById('encrypt-audio-btn');
+            const encryptionStatus = document.getElementById('encryption-status');
             
             // Format duration
             durationText.textContent = `${recordingDuration.toFixed(1)}s`;
             
-            // Format size
-            const sizeKB = (recordedAudioBlob.size / 1024).toFixed(2);
+            // Format size (show encrypted size if encrypted)
+            const displayBlob = isAudioEncrypted && encryptedAudioBlob ? encryptedAudioBlob : recordedAudioBlob;
+            const sizeKB = (displayBlob.size / 1024).toFixed(2);
             sizeText.textContent = `${sizeKB} KB`;
             
-            // Create audio URL for playback
+            // Update encryption button state
+            if (isAudioEncrypted) {
+                encryptBtn.textContent = 'Encrypted ✓';
+                encryptBtn.classList.add('encrypted');
+                encryptBtn.disabled = true;
+                encryptionStatus.style.display = 'block';
+            } else {
+                encryptBtn.textContent = 'Encrypt Audio';
+                encryptBtn.classList.remove('encrypted');
+                encryptBtn.disabled = false;
+                encryptionStatus.style.display = 'none';
+            }
+            
+            // Create audio URL for playback (use encrypted if available)
             if (audioPlayer) {
                 audioPlayer.pause();
                 URL.revokeObjectURL(audioPlayer.src);
             }
             
-            const audioUrl = URL.createObjectURL(recordedAudioBlob);
+            const playbackBlob = isAudioEncrypted && encryptedAudioBlob ? encryptedAudioBlob : recordedAudioBlob;
+            const audioUrl = URL.createObjectURL(playbackBlob);
             audioPlayer = document.getElementById('recorded-audio-player');
             audioPlayer.src = audioUrl;
             
             // Show panel
             panel.style.display = 'block';
+        }
+
+        function createWavFromData(data, sampleRate = 44100) {
+            const length = data.length;
+            const buffer = new ArrayBuffer(44 + length);
+            const view = new DataView(buffer);
+            
+            // WAV header
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+            
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + length, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 1, true);
+            view.setUint16(32, 1, true);
+            view.setUint16(34, 8, true);
+            writeString(36, 'data');
+            view.setUint32(40, length, true);
+            
+            // Copy data
+            const dataView = new Uint8Array(buffer, 44);
+            dataView.set(data);
+            
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+
+        async function encryptAudio() {
+            if (!hasRecordedAudio || !recordedAudioBlob || isAudioEncrypted) return;
+            
+            const encryptBtn = document.getElementById('encrypt-audio-btn');
+            encryptBtn.disabled = true;
+            encryptBtn.textContent = 'Encrypting...';
+            
+            try {
+                // Generate a random encryption key
+                encryptionKey = await crypto.subtle.generateKey(
+                    {
+                        name: 'AES-GCM',
+                        length: 256
+                    },
+                    true,
+                    ['encrypt', 'decrypt']
+                );
+                
+                // Convert blob to ArrayBuffer
+                const arrayBuffer = await recordedAudioBlob.arrayBuffer();
+                
+                // Generate a random IV (Initialization Vector)
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                
+                // Encrypt the audio data
+                const encryptedData = await crypto.subtle.encrypt(
+                    {
+                        name: 'AES-GCM',
+                        iv: iv
+                    },
+                    encryptionKey,
+                    arrayBuffer
+                );
+                
+                // Combine IV and encrypted data
+                const combined = new Uint8Array(iv.length + encryptedData.byteLength);
+                combined.set(iv, 0);
+                combined.set(new Uint8Array(encryptedData), iv.length);
+                
+                // Wrap encrypted data in WAV format so it can be played as audio (will sound like noise)
+                encryptedAudioBlob = createWavFromData(combined);
+                isAudioEncrypted = true;
+                
+                // Update UI
+                encryptBtn.textContent = 'Encrypted ✓';
+                encryptBtn.classList.add('encrypted');
+                encryptBtn.disabled = true;
+                
+                // Show encryption status
+                const encryptionStatus = document.getElementById('encryption-status');
+                encryptionStatus.style.display = 'block';
+                
+                // Update size display
+                const sizeText = document.getElementById('audio-size-text');
+                const sizeKB = (encryptedAudioBlob.size / 1024).toFixed(2);
+                sizeText.textContent = `${sizeKB} KB`;
+                
+                // Update audio player to use encrypted audio
+                if (audioPlayer) {
+                    audioPlayer.pause();
+                    URL.revokeObjectURL(audioPlayer.src);
+                }
+                
+                const audioUrl = URL.createObjectURL(encryptedAudioBlob);
+                audioPlayer = document.getElementById('recorded-audio-player');
+                audioPlayer.src = audioUrl;
+                
+                updateStatus('Audio encrypted successfully - playing will show encrypted (noisy) audio', 'connected');
+                
+            } catch (error) {
+                console.error('Encryption error:', error);
+                updateStatus('Error encrypting audio: ' + error.message, 'disconnected');
+                encryptBtn.disabled = false;
+                encryptBtn.textContent = 'Encrypt Audio';
+            }
         }
 
         function sendRecordedAudio() {
@@ -2125,14 +2304,23 @@
                 return;
             }
 
+            // Use encrypted audio if available, otherwise use original
+            const audioToSend = isAudioEncrypted && encryptedAudioBlob ? encryptedAudioBlob : recordedAudioBlob;
+            
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64Audio = reader.result.split(',')[1];
-                socket.emit('send_audio', { audio: base64Audio });
+                socket.emit('send_audio', { 
+                    audio: base64Audio,
+                    encrypted: isAudioEncrypted
+                });
                 
                 // Reset after sending
                 hasRecordedAudio = false;
                 recordedAudioBlob = null;
+                isAudioEncrypted = false;
+                encryptedAudioBlob = null;
+                encryptionKey = null;
                 recordingDuration = 0;
                 document.getElementById('send-btn').disabled = true;
                 document.getElementById('send-btn').textContent = 'Send Audio';
@@ -2165,7 +2353,7 @@
                 
                 // Status will be updated by socket.on('audio_sent') event
             };
-            reader.readAsDataURL(recordedAudioBlob);
+            reader.readAsDataURL(audioToSend);
         }
 
         function playAudio(base64Audio) {

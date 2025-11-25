@@ -76,6 +76,7 @@ The Secure Voice Communication system is a three-tier architecture:
 - **Web Audio API**: Audio capture and playback
 - **MediaRecorder API**: Audio recording
 - **Canvas API**: Waveform visualization
+- **Web Crypto API**: Client-side encryption (AES-256-GCM)
 
 ### Key Components
 
@@ -214,6 +215,173 @@ function playAudio(base64Audio) {
 - **Requirement**: SNR ≥ 40dB
 - **Below Threshold**: Shows "Below 40dB (Does not meet requirement)" in red
 - **Meets Requirement**: Shows "Meets Requirement (≥40dB)" in green
+
+#### 6. Client-Side Audio Encryption
+
+**Location**: `templates/index.html` (JavaScript section)
+
+**Purpose**: Allow users to encrypt recorded audio before transmission, providing an additional layer of security. Encrypted audio can be played back to demonstrate encryption (will sound like noise/distorted).
+
+**Implementation**:
+
+```javascript
+async function encryptAudio() {
+    // Generate a random encryption key
+    encryptionKey = await crypto.subtle.generateKey(
+        {
+            name: 'AES-GCM',
+            length: 256
+        },
+        true,
+        ['encrypt', 'decrypt']
+    );
+    
+    // Convert blob to ArrayBuffer
+    const arrayBuffer = await recordedAudioBlob.arrayBuffer();
+    
+    // Generate a random IV (Initialization Vector)
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    
+    // Encrypt the audio data
+    const encryptedData = await crypto.subtle.encrypt(
+        {
+            name: 'AES-GCM',
+            iv: iv
+        },
+        encryptionKey,
+        arrayBuffer
+    );
+    
+    // Combine IV and encrypted data
+    const combined = new Uint8Array(iv.length + encryptedData.byteLength);
+    combined.set(iv, 0);
+    combined.set(new Uint8Array(encryptedData), iv.length);
+    
+    // Wrap encrypted data in WAV format so it can be played as audio
+    encryptedAudioBlob = createWavFromData(combined);
+    isAudioEncrypted = true;
+}
+```
+
+**Encryption Algorithm**:
+- **Algorithm**: AES-256-GCM (Advanced Encryption Standard, 256-bit key, Galois/Counter Mode)
+- **Key Generation**: Random key generated using Web Crypto API
+- **IV (Initialization Vector)**: 12-byte random IV for each encryption
+- **Format**: Encrypted data wrapped in WAV format for playback compatibility
+
+**WAV Wrapper Function**:
+
+```javascript
+function createWavFromData(data, sampleRate = 44100) {
+    const length = data.length;
+    const buffer = new ArrayBuffer(44 + length);
+    const view = new DataView(buffer);
+    
+    // WAV header (RIFF format)
+    // ... header construction ...
+    
+    // Copy encrypted data
+    const dataView = new Uint8Array(buffer, 44);
+    dataView.set(data);
+    
+    return new Blob([buffer], { type: 'audio/wav' });
+}
+```
+
+**Features**:
+- **Default State**: Audio is recorded unencrypted by default
+- **On-Demand Encryption**: User clicks "Encrypt Audio" button to encrypt
+- **One-Time Encryption**: Once encrypted, button is disabled (shows "Encrypted ✓")
+- **Visual Feedback**: 
+  - Button shows "Encrypting..." during process
+  - Button shows "Encrypted ✓" when complete (green, disabled)
+  - Encryption status indicator appears
+  - File size updates to show encrypted size
+- **Playback**: Encrypted audio can be played (sounds like noise/distorted, demonstrating encryption)
+- **Transmission**: When sending, encrypted audio is sent if available, otherwise original is sent
+
+**UI Components**:
+
+1. **Encrypt Audio Button**:
+   - Located in "Recorded Audio" panel
+   - Styled with navy blue theme
+   - Changes to green when encrypted
+   - Disabled after encryption
+
+2. **Encryption Status Indicator**:
+   - Shows "🔒 Encrypted" message
+   - Appears when audio is encrypted
+   - Styled with light blue accent
+
+3. **File Size Display**:
+   - Updates to show encrypted file size
+   - Encrypted files are typically larger due to WAV wrapper
+
+**State Management**:
+
+```javascript
+// State variables
+let isAudioEncrypted = false;
+let encryptedAudioBlob = null;
+let encryptionKey = null;
+
+// Playback logic
+const playbackBlob = isAudioEncrypted && encryptedAudioBlob 
+    ? encryptedAudioBlob 
+    : recordedAudioBlob;
+
+// Send logic
+const audioToSend = isAudioEncrypted && encryptedAudioBlob 
+    ? encryptedAudioBlob 
+    : recordedAudioBlob;
+```
+
+**Security Properties**:
+- **Client-Side Only**: Encryption happens entirely in the browser
+- **Random Keys**: Each encryption uses a new random 256-bit key
+- **Unique IVs**: Each encryption uses a unique 12-byte IV
+- **GCM Mode**: Provides authenticated encryption (confidentiality + integrity)
+- **Key Storage**: Encryption key stored in memory (not persisted)
+
+**Use Cases**:
+1. **Demonstration**: Show that encrypted audio sounds distorted when played
+2. **Additional Security**: Add client-side encryption before server transmission
+3. **Testing**: Verify encryption/decryption functionality
+4. **Education**: Demonstrate encryption concepts visually
+
+**Limitations**:
+- Encrypted audio cannot be decrypted without the key (key is not stored)
+- Encrypted audio playback sounds like noise (expected behavior)
+- Encryption is one-way (cannot undo encryption)
+- WAV wrapper adds overhead to file size
+
+**Integration with Transmission**:
+
+When sending audio:
+```javascript
+function sendRecordedAudio() {
+    // Use encrypted audio if available, otherwise use original
+    const audioToSend = isAudioEncrypted && encryptedAudioBlob 
+        ? encryptedAudioBlob 
+        : recordedAudioBlob;
+    
+    // Convert to base64 and send
+    const reader = new FileReader();
+    reader.onloadend = () => {
+        const base64Audio = reader.result.split(',')[1];
+        socket.emit('send_audio', { 
+            audio: base64Audio,
+            encrypted: isAudioEncrypted
+        });
+    };
+    reader.readAsDataURL(audioToSend);
+}
+```
+
+**Reset Behavior**:
+- Encryption state resets when starting a new recording
+- Encryption state resets after sending audio
+- Original audio blob is preserved until new recording starts
 
 ---
 
@@ -407,8 +575,13 @@ def broadcast_audio(self, audio_data, sender_socket):
 ```
 1. User Records Audio (Browser)
    └─> MediaRecorder captures audio (WebM/Opus)
-       └─> Converted to base64
-           └─> socket.emit('send_audio', {audio: base64})
+       └─> Audio stored as Blob (unencrypted by default)
+           ├─> Optional: User clicks "Encrypt Audio" button
+           │   └─> Client-side encryption (AES-256-GCM)
+           │       └─> Encrypted audio stored as WAV-wrapped Blob
+           │
+           └─> Converted to base64
+               └─> socket.emit('send_audio', {audio: base64, encrypted: boolean})
 
 2. Web Server Receives Audio
    └─> Decode base64 → binary audio
