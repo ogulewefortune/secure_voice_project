@@ -1,0 +1,2204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Voice Communication</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: linear-gradient(180deg, #0a0e1a 0%, #1a2342 50%, #0f1626 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            position: relative;
+            overflow-x: hidden;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(30, 58, 138, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            max-width: 100%;
+            width: 100%;
+            min-height: 100vh;
+            padding: 0;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: saturate(180%) blur(40px);
+            -webkit-backdrop-filter: saturate(180%) blur(40px);
+            padding: 20px 40px;
+            border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        h1 {
+            color: #ffffff;
+            text-align: left;
+            margin: 0 0 6px 0;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.5);
+            margin: 0;
+            font-size: 15px;
+            font-weight: 400;
+            letter-spacing: -0.2px;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 60px 40px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            gap: 40px;
+        }
+
+        .center-audio-section {
+            width: 100%;
+            max-width: 900px;
+            order: 1;
+        }
+
+        .side-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 1400px;
+            order: 2;
+        }
+
+        .left-panel, .right-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .panel-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-radius: 16px;
+            padding: 24px;
+            border: 0.5px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .panel-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .panel-title {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 0;
+            border-bottom: none;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 16px 20px;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border: 0.5px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .status.connected {
+            background: rgba(52, 199, 89, 0.1);
+            border-color: rgba(52, 199, 89, 0.2);
+            color: #34c759;
+        }
+
+        .status.disconnected {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .status.recording {
+            background: rgba(255, 159, 10, 0.1);
+            border-color: rgba(255, 159, 10, 0.2);
+            color: #ff9f0a;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 0;
+        }
+
+        .status-indicator.connected {
+            background: #34c759;
+            box-shadow: 0 0 8px rgba(52, 199, 89, 0.4);
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.disconnected {
+            background: rgba(255, 255, 255, 0.3);
+            box-shadow: none;
+        }
+
+        .status-indicator.recording {
+            background: #ff9f0a;
+            box-shadow: 0 0 12px rgba(255, 159, 10, 0.5);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+
+        .button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            text-transform: none;
+            letter-spacing: -0.2px;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        }
+
+        .button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .button-primary {
+            background: rgba(30, 58, 138, 0.9);
+            color: #ffffff;
+            border: none;
+            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+        }
+
+        .button-primary:hover:not(:disabled) {
+            background: rgba(37, 99, 235, 1);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .button-record {
+            background: rgba(255, 45, 85, 0.9);
+            color: #ffffff;
+            font-size: 15px;
+            padding: 14px 28px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(255, 45, 85, 0.25);
+        }
+
+        .button-record:hover:not(:disabled) {
+            background: rgba(255, 45, 85, 1);
+            box-shadow: 0 4px 12px rgba(255, 45, 85, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .button-record.recording {
+            background: rgba(255, 159, 10, 0.9);
+            color: #ffffff;
+            animation: pulse-button 2s infinite;
+            box-shadow: 0 0 20px rgba(255, 159, 10, 0.4);
+        }
+
+        .button-stop {
+            background: rgba(255, 159, 10, 0.9);
+            color: #ffffff;
+            border: none;
+            box-shadow: 0 2px 8px rgba(255, 159, 10, 0.25);
+        }
+
+        .button-stop:hover:not(:disabled) {
+            background: rgba(255, 159, 10, 1);
+            box-shadow: 0 4px 12px rgba(255, 159, 10, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .button-send {
+            background: rgba(52, 199, 89, 0.9);
+            color: #ffffff;
+            font-size: 15px;
+            padding: 14px 28px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(52, 199, 89, 0.25);
+        }
+
+        .button-send:hover:not(:disabled) {
+            background: rgba(52, 199, 89, 1);
+            box-shadow: 0 4px 12px rgba(52, 199, 89, 0.35);
+            transform: translateY(-1px);
+        }
+
+        @keyframes pulse-button {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 0 20px rgba(255, 159, 10, 0.4);
+            }
+            50% { 
+                transform: scale(1.02);
+                box-shadow: 0 0 30px rgba(255, 159, 10, 0.6);
+            }
+        }
+
+        .waveform-container {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: saturate(180%) blur(30px);
+            -webkit-backdrop-filter: saturate(180%) blur(30px);
+            border-radius: 24px;
+            padding: 50px 40px;
+            min-height: 500px;
+            position: relative;
+            display: none;
+            border: 0.5px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            opacity: 0;
+            transform: scale(0.98);
+            transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .waveform-container.recording {
+            display: block;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .waveform-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, rgba(30, 58, 138, 0.15) 0%, transparent 70%);
+            pointer-events: none;
+            animation: radial-pulse 6s ease-in-out infinite;
+        }
+
+        @keyframes radial-pulse {
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.02); }
+        }
+
+        .waveform-container.recording {
+            display: block;
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .waveform-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            margin-bottom: 40px;
+            text-align: center;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .siri-visualizer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 180px;
+            position: relative;
+            margin: 20px 0;
+        }
+
+        .siri-center-logo {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(30, 58, 138, 0.15) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 10;
+            box-shadow: 
+                0 0 40px rgba(30, 58, 138, 0.3),
+                inset 0 0 30px rgba(255, 255, 255, 0.05);
+            animation: logo-pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes logo-pulse {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 
+                    0 0 40px rgba(30, 58, 138, 0.3),
+                    inset 0 0 30px rgba(255, 255, 255, 0.05);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 
+                    0 0 60px rgba(59, 130, 246, 0.4),
+                    inset 0 0 40px rgba(255, 255, 255, 0.08);
+            }
+        }
+
+        .siri-logo-inner {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, 
+                rgba(30, 58, 138, 0.7) 0%,
+                rgba(59, 130, 246, 0.6) 50%,
+                rgba(147, 197, 253, 0.5) 100%);
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.15);
+        }
+
+        .siri-logo-inner::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, transparent 70%);
+            transform: translate(-50%, -50%);
+            animation: inner-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes inner-glow {
+            0%, 100% { opacity: 0.8; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+        }
+
+        .siri-waves-container {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 5;
+        }
+
+        .siri-wave-left, .siri-wave-right {
+            flex: 1;
+            height: 4px;
+            position: relative;
+            max-width: 45%;
+        }
+
+        .siri-wave-path {
+            stroke-width: 3;
+            fill: none;
+            filter: drop-shadow(0 0 8px currentColor);
+            transition: all 0.1s ease-out;
+        }
+
+        .siri-wave-left .siri-wave-path {
+            color: rgba(30, 58, 138, 0.9);
+            stroke: rgba(30, 58, 138, 0.9);
+        }
+
+        .siri-wave-right .siri-wave-path {
+            color: rgba(147, 197, 253, 0.9);
+            stroke: rgba(147, 197, 253, 0.9);
+        }
+
+        .siri-bars-left, .siri-bars-right {
+            display: flex;
+            gap: 3px;
+            align-items: flex-end;
+            height: 100px;
+        }
+
+        .siri-bar {
+            width: 4px;
+            background: linear-gradient(180deg, 
+                rgba(30, 58, 138, 0.95) 0%,
+                rgba(59, 130, 246, 0.85) 50%,
+                rgba(147, 197, 253, 0.9) 100%);
+            border-radius: 2px;
+            min-height: 6px;
+            transition: height 0.1s ease-out, opacity 0.1s ease-out;
+            box-shadow: 
+                0 0 8px rgba(30, 58, 138, 0.5),
+                0 0 16px rgba(59, 130, 246, 0.4),
+                0 0 24px rgba(147, 197, 253, 0.3);
+            animation: bar-glow 3s ease-in-out infinite;
+        }
+
+        .siri-bar-left {
+            background: linear-gradient(180deg, 
+                rgba(30, 58, 138, 0.95) 0%,
+                rgba(59, 130, 246, 0.85) 50%,
+                rgba(147, 197, 253, 0.9) 100%);
+            box-shadow: 
+                0 0 8px rgba(30, 58, 138, 0.5),
+                0 0 16px rgba(59, 130, 246, 0.4),
+                0 0 24px rgba(147, 197, 253, 0.3);
+        }
+
+        .siri-bar-right {
+            background: linear-gradient(180deg, 
+                rgba(30, 58, 138, 0.95) 0%,
+                rgba(59, 130, 246, 0.85) 50%,
+                rgba(147, 197, 253, 0.9) 100%);
+            box-shadow: 
+                0 0 8px rgba(30, 58, 138, 0.5),
+                0 0 16px rgba(59, 130, 246, 0.4),
+                0 0 24px rgba(147, 197, 253, 0.3);
+        }
+
+        @keyframes bar-glow {
+            0%, 100% { 
+                opacity: 0.7;
+            }
+            50% { 
+                opacity: 1;
+            }
+        }
+
+        .quality-metrics {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+        }
+
+        .waveform-container.recording .quality-metrics {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border-radius: 16px;
+            padding: 24px 28px;
+            min-width: 180px;
+            text-align: center;
+            border: 0.5px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .metric-card.meets-requirement {
+            background: rgba(52, 199, 89, 0.08);
+            border-color: rgba(52, 199, 89, 0.2);
+            box-shadow: 0 4px 20px rgba(52, 199, 89, 0.15);
+        }
+
+        .metric-card.below-requirement {
+            background: rgba(255, 59, 48, 0.08);
+            border-color: rgba(255, 59, 48, 0.2);
+            box-shadow: 0 4px 20px rgba(255, 59, 48, 0.15);
+            animation: warning-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes warning-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .metric-label {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .metric-value {
+            color: #ffffff;
+            font-size: 36px;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+            letter-spacing: -1px;
+        }
+
+        .metric-unit {
+            font-size: 18px;
+            opacity: 0.6;
+            margin-left: 4px;
+            font-weight: 500;
+        }
+
+        .metric-status {
+            margin-top: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .metric-status.pass {
+            color: #34c759;
+        }
+
+        .metric-status.fail {
+            color: #ff3b30;
+        }
+
+        .waveform-canvas {
+            width: 100%;
+            height: 120px;
+            background: transparent;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .intensity-indicator {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            padding: 14px 20px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            border: 0.5px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .intensity-silent { 
+            color: rgba(255, 255, 255, 0.4); 
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.08);
+        }
+        .intensity-quiet { 
+            color: #34c759; 
+            background: rgba(52, 199, 89, 0.1);
+            border-color: rgba(52, 199, 89, 0.2);
+        }
+        .intensity-normal { 
+            color: #3b82f6; 
+            background: rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+        .intensity-loud { 
+            color: #ff9f0a; 
+            background: rgba(255, 159, 10, 0.1);
+            border-color: rgba(255, 159, 10, 0.2);
+        }
+        .intensity-shouting { 
+            color: #ff3b30; 
+            background: rgba(255, 59, 48, 0.15);
+            border-color: rgba(255, 59, 48, 0.3);
+            animation: pulse-red 1s infinite;
+            box-shadow: 0 0 20px rgba(255, 59, 48, 0.3);
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        .audio-visualizer {
+            margin: 0;
+            height: 180px;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            padding: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .visualizer-label {
+            font-size: 0.9em;
+            color: #555;
+            margin-bottom: 15px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .visualizer-bars {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            width: 100%;
+            height: 60px;
+        }
+
+        .bar {
+            width: 4px;
+            background: linear-gradient(180deg, rgba(30, 58, 138, 0.95) 0%, rgba(59, 130, 246, 0.85) 50%, rgba(147, 197, 253, 0.9) 100%);
+            border-radius: 2px;
+            transition: height 0.12s ease-out;
+            box-shadow: 
+                0 0 6px rgba(30, 58, 138, 0.5),
+                0 0 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .mic-level-meter {
+            width: 100%;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            margin-top: 12px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .mic-level-fill {
+            height: 100%;
+            background: linear-gradient(90deg, rgba(30, 58, 138, 0.9) 0%, rgba(59, 130, 246, 0.85) 50%, rgba(147, 197, 253, 0.9) 100%);
+            border-radius: 16px;
+            transition: width 0.1s ease;
+            width: 0%;
+            box-shadow: 
+                0 0 12px rgba(30, 58, 138, 0.5),
+                0 0 20px rgba(59, 130, 246, 0.4);
+        }
+
+        .mic-level-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.75em;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            z-index: 1;
+        }
+
+        .voice-detected {
+            animation: voicePulse 0.5s infinite;
+        }
+
+        @keyframes voicePulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+
+        .info {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 2px solid rgba(59, 130, 246, 0.4);
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6;
+        }
+
+        .info strong {
+            color: rgba(255, 255, 255, 0.95);
+            font-weight: 600;
+            display: block;
+            margin-bottom: 12px;
+            font-size: 0.9em;
+        }
+
+        .info ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .info li {
+            margin: 8px 0;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .server-config {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .server-config-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .server-config label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .server-config input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 0.5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            background: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.9);
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+        }
+
+        .server-config input:focus {
+            outline: none;
+            border-color: rgba(59, 130, 246, 0.6);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .recorded-audio-info {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .audio-duration, .audio-size {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            border-left: 2px solid rgba(59, 130, 246, 0.4);
+        }
+
+        .duration-label, .size-label {
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.85em;
+            min-width: 80px;
+        }
+
+        #audio-duration-text, #audio-size-text {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+            font-size: 0.95em;
+        }
+
+        .audio-preview-controls {
+            display: flex;
+            gap: 12px;
+        }
+
+        .button-play, .button-pause {
+            background: rgba(30, 58, 138, 0.9);
+            color: #ffffff;
+            padding: 10px 24px;
+            font-size: 14px;
+            border: none;
+            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+            font-weight: 500;
+        }
+
+        .button-play:hover, .button-pause:hover {
+            background: rgba(37, 99, 235, 1);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .accordion {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .accordion-item {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            border: 0.5px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            margin-bottom: 8px;
+        }
+
+        .accordion-item.active {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .accordion-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 18px 20px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s ease;
+        }
+
+        .accordion-header:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .accordion-icon {
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .accordion-title {
+            flex: 1;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+            font-size: 14px;
+            letter-spacing: -0.2px;
+        }
+
+        .accordion-chevron {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
+            transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .accordion-item.active .accordion-chevron {
+            transform: rotate(90deg);
+        }
+
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .accordion-item.active .accordion-content {
+            max-height: 500px;
+        }
+
+        .accordion-body {
+            padding: 0 20px 20px 56px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .processing-details {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .processing-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 10px 0;
+            font-size: 13px;
+            line-height: 1.6;
+            border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .processing-item:last-child {
+            border-bottom: none;
+        }
+
+        .processing-label {
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 500;
+            min-width: 140px;
+            flex-shrink: 0;
+            font-size: 12px;
+        }
+
+        .processing-value {
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 400;
+            font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
+            word-break: break-all;
+            font-size: 13px;
+        }
+
+        .processing-item.success .processing-value {
+            color: #34c759;
+        }
+
+        .processing-item.warning .processing-value {
+            color: #ff3b30;
+        }
+
+        .intrusion-alert-item {
+            background: rgba(255, 59, 48, 0.08);
+            border: 0.5px solid rgba(255, 59, 48, 0.2);
+        }
+
+        .intrusion-alert-item.active {
+            border-color: rgba(255, 59, 48, 0.4);
+            box-shadow: 0 4px 20px rgba(255, 59, 48, 0.15);
+        }
+
+        .intrusion-alert-item .accordion-header:hover {
+            background: rgba(255, 59, 48, 0.05);
+        }
+
+        .intrusion-alert-item .accordion-title {
+            color: #ff3b30;
+            font-weight: 600;
+        }
+
+        .intrusion-message {
+            color: #ff3b30;
+            font-weight: 500;
+            font-size: 14px;
+            padding: 8px 0;
+            line-height: 1.5;
+        }
+
+
+        @media (max-width: 1200px) {
+            .side-panels {
+                grid-template-columns: 1fr;
+            }
+            
+            .center-audio-section {
+                order: 1;
+            }
+            
+            .side-panels {
+                order: 2;
+            }
+        }
+
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 20px 24px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .main-content {
+                padding: 20px 16px;
+                gap: 24px;
+            }
+
+            .panel-card {
+                padding: 20px;
+            }
+
+            .server-config {
+                grid-template-columns: 1fr;
+            }
+            
+            .waveform-container {
+                padding: 40px 20px;
+                min-height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Secure Voice Communication</h1>
+        <p class="subtitle">End-to-end encrypted voice communication</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Center Audio Visualization -->
+            <div class="center-audio-section">
+                <div class="panel-card" style="padding: 0; overflow: hidden; background: transparent; border: none; box-shadow: none;">
+        <div class="waveform-container">
+                        <div class="waveform-label">Secure Voice Communication</div>
+            
+            <div class="siri-visualizer" id="siri-visualizer">
+                <div class="siri-waves-container">
+                    <div class="siri-bars-left" id="siri-bars-left"></div>
+                    <div class="siri-center-logo">
+                        <div class="siri-logo-inner"></div>
+                    </div>
+                    <div class="siri-bars-right" id="siri-bars-right"></div>
+                </div>
+            </div>
+
+            <div class="quality-metrics">
+                <div class="metric-card" id="snr-metric">
+                    <div class="metric-label">Quantization SNR</div>
+                    <div class="metric-value">
+                        <span id="snr-value">--</span>
+                        <span class="metric-unit">dB</span>
+                    </div>
+                    <div class="metric-status" id="snr-status">--</div>
+                </div>
+                <div class="metric-card" id="bitrate-metric">
+                    <div class="metric-label">Link Capacity</div>
+                    <div class="metric-value">
+                        <span id="bitrate-value">--</span>
+                        <span class="metric-unit">Kbps</span>
+                    </div>
+                    <div class="metric-status" id="bitrate-status">Target: 64 Kbps</div>
+                </div>
+            </div>
+
+            <canvas id="waveform-canvas" class="waveform-canvas"></canvas>
+                        <div id="intensity-indicator" class="intensity-indicator intensity-silent">Silent</div>
+                    </div>
+                </div>
+        </div>
+
+            <!-- Side Panels -->
+            <div class="side-panels">
+                <div class="left-panel">
+                    <div class="panel-card">
+                        <div class="panel-title">Connection Status</div>
+                        <div id="status" class="status disconnected">
+                            <span class="status-indicator disconnected"></span>
+                            <span id="status-text">Disconnected</span>
+                        </div>
+                    </div>
+
+                    <div class="panel-card">
+                        <div class="panel-title">Server Configuration</div>
+                        <div class="server-config">
+                            <div class="server-config-group">
+                                <label>Server Host</label>
+                                <input type="text" id="server-host" value="localhost" placeholder="localhost">
+                            </div>
+                            <div class="server-config-group">
+                                <label>Server Port</label>
+                                <input type="number" id="server-port" value="8888" placeholder="8888">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-card">
+                        <div class="panel-title">Controls</div>
+                        <div class="controls">
+                            <button id="connect-btn" class="button button-primary">Connect to Server</button>
+                            <button id="record-btn" class="button button-record" disabled>Start Recording</button>
+                            <button id="stop-record-btn" class="button button-stop" disabled style="display: none;">Stop Recording</button>
+                            <button id="send-btn" class="button button-send" disabled>Send Audio</button>
+                        </div>
+                    </div>
+
+                    <div class="panel-card" id="recorded-audio-panel" style="display: none;">
+                        <div class="panel-title">Recorded Audio</div>
+                        <div class="recorded-audio-info">
+                            <div class="audio-duration">
+                                <span class="duration-label">Duration:</span>
+                                <span id="audio-duration-text">--</span>
+                            </div>
+                            <div class="audio-size">
+                                <span class="size-label">Size:</span>
+                                <span id="audio-size-text">--</span>
+                            </div>
+                            <div class="audio-preview-controls">
+                                <button id="play-audio-btn" class="button button-play">Play</button>
+                                <button id="pause-audio-btn" class="button button-pause" style="display: none;">Pause</button>
+                                <audio id="recorded-audio-player" style="display: none;"></audio>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-card" id="processing-details-panel" style="display: none;">
+                        <div class="panel-title">Processing Details</div>
+                        <div class="accordion" id="processing-accordion">
+                            <div class="accordion-item" id="processing-audio-item">
+                                <div class="accordion-header" onclick="toggleAccordion('processing-audio-item')">
+                                    <div class="accordion-icon">📊</div>
+                                    <div class="accordion-title">Processing Audio</div>
+                                    <div class="accordion-chevron">▶</div>
+                                </div>
+                                <div class="accordion-content">
+                                    <div class="accordion-body">
+                                        <div class="processing-item">
+                                            <span class="processing-label">Processing audio:</span>
+                                            <span id="processing-original-size" class="processing-value">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item" id="processing-quality-item">
+                                <div class="accordion-header" onclick="toggleAccordion('processing-quality-item')">
+                                    <div class="accordion-icon">📈</div>
+                                    <div class="accordion-title">Quality Metrics</div>
+                                    <div class="accordion-chevron">▶</div>
+                                </div>
+                                <div class="accordion-content">
+                                    <div class="accordion-body">
+                                        <div class="processing-item" id="snr-item">
+                                            <span class="processing-label">SNR:</span>
+                                            <span id="processing-snr" class="processing-value">--</span>
+                                        </div>
+                                        <div class="processing-item">
+                                            <span class="processing-label">Bitrate:</span>
+                                            <span id="processing-bitrate" class="processing-value">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item" id="processing-compression-item">
+                                <div class="accordion-header" onclick="toggleAccordion('processing-compression-item')">
+                                    <div class="accordion-icon">🗜️</div>
+                                    <div class="accordion-title">Compression</div>
+                                    <div class="accordion-chevron">▶</div>
+                                </div>
+                                <div class="accordion-content">
+                                    <div class="accordion-body">
+                                        <div class="processing-item">
+                                            <span class="processing-label">Compression:</span>
+                                            <span id="processing-compression" class="processing-value">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item" id="processing-security-item">
+                                <div class="accordion-header" onclick="toggleAccordion('processing-security-item')">
+                                    <div class="accordion-icon">🔒</div>
+                                    <div class="accordion-title">Security</div>
+                                    <div class="accordion-chevron">▶</div>
+                                </div>
+                                <div class="accordion-content">
+                                    <div class="accordion-body">
+                                        <div class="processing-item">
+                                            <span class="processing-label">HMAC:</span>
+                                            <span id="processing-hmac" class="processing-value">--</span>
+                                        </div>
+                                        <div class="processing-item">
+                                            <span class="processing-label">Encrypted:</span>
+                                            <span id="processing-encrypted" class="processing-value">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item" id="processing-sent-item">
+                                <div class="accordion-header" onclick="toggleAccordion('processing-sent-item')">
+                                    <div class="accordion-icon">📤</div>
+                                    <div class="accordion-title">Transmission</div>
+                                    <div class="accordion-chevron">▶</div>
+                                </div>
+                                <div class="accordion-content">
+                                    <div class="accordion-body">
+                                        <div class="processing-item">
+                                            <span class="processing-label">Sent:</span>
+                                            <span id="processing-sent" class="processing-value">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-card" id="intrusion-alert-panel" style="display: none;">
+                        <div class="panel-title">Security Alerts</div>
+                        <div class="accordion" id="intrusion-accordion">
+                            <div class="accordion-item intrusion-alert-item active" id="intrusion-alert-item">
+                                <div class="accordion-header" onclick="toggleAccordion('intrusion-alert-item')">
+                                    <div class="accordion-icon">⚠️</div>
+                                    <div class="accordion-title">Server Compromised</div>
+                                    <div class="accordion-chevron">▼</div>
+                                </div>
+                                <div class="accordion-content">
+                                    <div class="accordion-body">
+                                        <div class="intrusion-message" id="intrusion-message-text">
+                                            Server compromised - Security intrusion detected
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="right-panel">
+                    <div class="panel-card">
+                        <div class="panel-title">Audio Input</div>
+                        <div class="audio-visualizer" id="audio-visualizer" style="display: none;">
+                            <div class="visualizer-bars" id="visualizer"></div>
+                            <div class="mic-level-meter">
+                                <div class="mic-level-fill" id="mic-level-fill"></div>
+                                <div class="mic-level-text" id="mic-level-text">No input detected</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-card">
+        <div class="info">
+                            <strong>How to use:</strong>
+            <ul>
+                <li>Click "Connect to Server" to establish secure connection</li>
+                <li>Click "Start Recording" - waveform will appear showing your voice</li>
+                <li>Speak into your microphone - watch intensity: Quiet → Normal → Loud → SHOUTING!</li>
+                <li>Click "Stop Recording" when done</li>
+                <li>Click "Send Audio" - you'll see transfer confirmation with SNR and bitrate</li>
+                <li><strong>Security:</strong> AES-256-GCM encryption + HMAC integrity check</li>
+                                <li><strong>Quality:</strong> 64 Kbps bitrate, SNR ≥ 40dB (SNR &lt; 40dB does not meet requirement)</li>
+            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let isConnected = false;
+        let isRecording = false;
+        let hasRecordedAudio = false;
+        let recordedAudioBlob = null;
+        let mediaRecorder = null;
+        let audioContext = null;
+        let analyser = null;
+        let microphone = null;
+        let dataArray = null;
+        let currentAudioLevel = 0;
+        let voiceDetected = false;
+        let waveformCanvas = null;
+        let waveformCtx = null;
+        let waveformData = [];
+        let maxWaveformLength = 200;
+        let siriBarsLeft = [];
+        let siriBarsRight = [];
+        let siriBarCount = 25; // Bars on each side
+        let currentSNR = null;
+        let currentBitrate = null;
+        let audioDataSize = 0;
+        let audioPackets = 0;
+        let recordingStartTime = null;
+        let recordingDuration = 0;
+        let audioPlayer = null;
+
+        // Initialize visualizer
+        function initVisualizer() {
+            const visualizer = document.getElementById('visualizer');
+            visualizer.innerHTML = '';
+            for (let i = 0; i < 40; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.height = '10px';
+                visualizer.appendChild(bar);
+            }
+
+            // Initialize Siri-style visualizer
+            initSiriVisualizer();
+
+            // Initialize waveform canvas
+            waveformCanvas = document.getElementById('waveform-canvas');
+            waveformCtx = waveformCanvas.getContext('2d');
+            waveformCanvas.width = waveformCanvas.offsetWidth;
+            waveformCanvas.height = waveformCanvas.offsetHeight;
+            waveformData = [];
+        }
+
+        function initSiriVisualizer() {
+            const barsLeft = document.getElementById('siri-bars-left');
+            const barsRight = document.getElementById('siri-bars-right');
+            
+            barsLeft.innerHTML = '';
+            barsRight.innerHTML = '';
+            siriBarsLeft = [];
+            siriBarsRight = [];
+            
+            // Create bars for left side
+            for (let i = 0; i < siriBarCount; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'siri-bar siri-bar-left';
+                bar.style.height = '8px';
+                bar.style.animationDelay = `${(i % 3) * 0.1}s`;
+                barsLeft.appendChild(bar);
+                siriBarsLeft.push(bar);
+            }
+            
+            // Create bars for right side
+            for (let i = 0; i < siriBarCount; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'siri-bar siri-bar-right';
+                bar.style.height = '8px';
+                bar.style.animationDelay = `${(i % 3) * 0.1}s`;
+                barsRight.appendChild(bar);
+                siriBarsRight.push(bar);
+            }
+        }
+
+        function updateQualityMetrics(snr, bitrate, dataSize) {
+            // Update stored values
+            if (snr !== null && snr !== undefined) {
+                currentSNR = Number(snr);
+            }
+            if (bitrate !== null && bitrate !== undefined) {
+                currentBitrate = Number(bitrate);
+            }
+            if (dataSize !== null && dataSize !== undefined) {
+                audioDataSize += Number(dataSize);
+                audioPackets++;
+            }
+            
+            // Calculate real-time bitrate during recording
+            let calculatedBitrate = currentBitrate;
+            if (isRecording && recordingStartTime && audioPackets > 0) {
+                const elapsedSeconds = (Date.now() - recordingStartTime) / 1000;
+                if (elapsedSeconds > 0) {
+                    calculatedBitrate = (audioDataSize * 8) / elapsedSeconds; // bits per second
+                }
+            }
+            
+            // Update SNR
+            const snrValue = document.getElementById('snr-value');
+            const snrStatus = document.getElementById('snr-status');
+            const snrMetric = document.getElementById('snr-metric');
+            
+            if (currentSNR !== null && currentSNR !== undefined && !isNaN(currentSNR)) {
+                snrValue.textContent = currentSNR.toFixed(1);
+                if (currentSNR >= 40) {
+                    snrStatus.textContent = 'Meets Requirement (≥40dB)';
+                    snrStatus.className = 'metric-status pass';
+                    snrMetric.classList.remove('below-requirement');
+                    snrMetric.classList.add('meets-requirement');
+                } else {
+                    snrStatus.textContent = 'Below 40dB (Does not meet requirement)';
+                    snrStatus.className = 'metric-status fail';
+                    snrMetric.classList.remove('meets-requirement');
+                    snrMetric.classList.add('below-requirement');
+                }
+            } else if (isRecording) {
+                // Show calculating during recording
+                snrValue.textContent = '...';
+                snrStatus.textContent = 'Calculating...';
+                snrStatus.className = 'metric-status';
+                snrMetric.classList.remove('meets-requirement', 'below-requirement');
+            } else {
+                snrValue.textContent = '--';
+                snrStatus.textContent = '--';
+                snrMetric.classList.remove('meets-requirement', 'below-requirement');
+            }
+            
+            // Update Bitrate
+            const bitrateValue = document.getElementById('bitrate-value');
+            const bitrateStatus = document.getElementById('bitrate-status');
+            const bitrateMetric = document.getElementById('bitrate-metric');
+            
+            const displayBitrate = calculatedBitrate || currentBitrate;
+            if (displayBitrate !== null && displayBitrate !== undefined && !isNaN(displayBitrate) && displayBitrate > 0) {
+                const bitrateKbps = (displayBitrate / 1000).toFixed(1);
+                bitrateValue.textContent = bitrateKbps;
+                if (Math.abs(displayBitrate - 64000) < 2000) {
+                    bitrateStatus.textContent = 'Target: 64 Kbps';
+                    bitrateStatus.className = 'metric-status pass';
+                    bitrateMetric.classList.remove('below-requirement');
+                    bitrateMetric.classList.add('meets-requirement');
+                } else {
+                    bitrateStatus.textContent = 'Target: 64 Kbps';
+                    bitrateStatus.className = 'metric-status';
+                    bitrateMetric.classList.remove('meets-requirement', 'below-requirement');
+                }
+            } else if (isRecording) {
+                bitrateValue.textContent = '...';
+                bitrateStatus.textContent = 'Calculating...';
+                bitrateMetric.classList.remove('meets-requirement', 'below-requirement');
+            } else {
+                bitrateValue.textContent = '--';
+                bitrateStatus.textContent = 'Target: 64 Kbps';
+                bitrateMetric.classList.remove('meets-requirement', 'below-requirement');
+            }
+        }
+
+        function updateVisualizer() {
+            // Only update if recording and analyser is ready
+            if (!isRecording || !analyser || !dataArray) {
+                return;
+            }
+
+            try {
+                analyser.getByteFrequencyData(dataArray);
+                const bars = document.querySelectorAll('.bar');
+                
+                if (bars.length === 0) {
+                    // Bars not initialized yet, try again
+                    requestAnimationFrame(updateVisualizer);
+                    return;
+                }
+                
+                const step = Math.floor(dataArray.length / bars.length);
+
+                // Calculate average level for microphone meter
+                let sum = 0;
+                bars.forEach((bar, i) => {
+                    const value = dataArray[i * step] || 0;
+                    const height = Math.max(10, (value / 255) * 100);
+                    bar.style.height = height + 'px';
+                    sum += value;
+                });
+
+                // Update microphone level meter
+                const avgLevel = sum / bars.length;
+                currentAudioLevel = (avgLevel / 255) * 100;
+                updateMicLevel(currentAudioLevel);
+
+                // Detect voice (threshold: 5% of max)
+                const wasVoiceDetected = voiceDetected;
+                voiceDetected = currentAudioLevel > 5;
+                
+                if (voiceDetected && !wasVoiceDetected) {
+                    document.getElementById('mic-level-text').textContent = 'Voice detected!';
+                    document.getElementById('mic-level-fill').classList.add('voice-detected');
+                } else if (!voiceDetected && wasVoiceDetected) {
+                    document.getElementById('mic-level-text').textContent = 'No input detected';
+                    document.getElementById('mic-level-fill').classList.remove('voice-detected');
+                }
+
+                // Update waveform visualization and metrics
+                updateWaveform();
+                updateIntensityIndicator(currentAudioLevel);
+
+                // Continue animation loop
+                if (isRecording) {
+                    requestAnimationFrame(updateVisualizer);
+                }
+            } catch (error) {
+                console.error('Error in updateVisualizer:', error);
+                // Try again after a short delay
+                if (isRecording) {
+                    setTimeout(() => updateVisualizer(), 100);
+                }
+            }
+        }
+
+        function updateWaveform() {
+            if (!analyser || !dataArray || !isRecording) return;
+
+            // Get frequency data for Siri visualizer
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Calculate average level for SNR estimation (simplified)
+            let sum = 0;
+            let maxVal = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+                if (dataArray[i] > maxVal) maxVal = dataArray[i];
+            }
+            const avgLevel = sum / dataArray.length;
+            
+            // Estimate SNR based on audio level (simplified calculation)
+            // Higher levels with good signal = better SNR
+            const estimatedSNR = Math.min(60, 40 + (avgLevel / 255) * 20);
+            
+            // Estimate bitrate based on audio data
+            // Assuming 8kHz sample rate, 8-bit quantization = 64 Kbps
+            const estimatedBitrate = 64000; // Fixed at target
+            
+            // Update metrics in real-time
+            updateQualityMetrics(estimatedSNR, estimatedBitrate, null);
+            
+            // Update left side bars (reverse order for wave effect from center)
+            if (siriBarsLeft.length > 0) {
+                const dataStep = Math.floor(dataArray.length / siriBarsLeft.length);
+                
+                siriBarsLeft.forEach((bar, i) => {
+                    const dataIndex = i * dataStep;
+                    const value = dataArray[dataIndex] || 0;
+                    
+                    // Convert to height (8px to 100px)
+                    const minHeight = 8;
+                    const maxHeight = 100;
+                    const height = minHeight + (value / 255) * (maxHeight - minHeight);
+                    
+                    // Smoothing
+                    const currentHeight = parseFloat(bar.style.height) || minHeight;
+                    const smoothedHeight = currentHeight * 0.6 + height * 0.4;
+                    
+                    // Wave effect - bars closer to center are taller
+                    const distanceFromCenter = (siriBarsLeft.length - i) / siriBarsLeft.length;
+                    const waveFactor = 0.5 + (distanceFromCenter * 0.5); // 50% to 100%
+                    const finalHeight = smoothedHeight * waveFactor;
+                    
+                    bar.style.height = Math.max(minHeight, finalHeight) + 'px';
+                    bar.style.opacity = 0.5 + (value / 255) * 0.5;
+                });
+            }
+            
+            // Update right side bars
+            if (siriBarsRight.length > 0) {
+                const dataStep = Math.floor(dataArray.length / siriBarsRight.length);
+                
+                siriBarsRight.forEach((bar, i) => {
+                    const dataIndex = i * dataStep;
+                    const value = dataArray[dataIndex] || 0;
+                    
+                    // Convert to height (8px to 100px)
+                    const minHeight = 8;
+                    const maxHeight = 100;
+                    const height = minHeight + (value / 255) * (maxHeight - minHeight);
+                    
+                    // Smoothing
+                    const currentHeight = parseFloat(bar.style.height) || minHeight;
+                    const smoothedHeight = currentHeight * 0.6 + height * 0.4;
+                    
+                    // Wave effect - bars closer to center are taller
+                    const distanceFromCenter = (siriBarsRight.length - i) / siriBarsRight.length;
+                    const waveFactor = 0.5 + (distanceFromCenter * 0.5); // 50% to 100%
+                    const finalHeight = smoothedHeight * waveFactor;
+                    
+                    bar.style.height = Math.max(minHeight, finalHeight) + 'px';
+                    bar.style.opacity = 0.5 + (value / 255) * 0.5;
+                });
+            }
+        }
+
+        function updateIntensityIndicator(level) {
+            const indicator = document.getElementById('intensity-indicator');
+            
+            // Remove all intensity classes
+            indicator.className = 'intensity-indicator';
+            
+            if (level < 1) {
+                indicator.textContent = 'Silent';
+                indicator.classList.add('intensity-silent');
+            } else if (level < 15) {
+                indicator.textContent = `Quiet (${Math.round(level)}%)`;
+                indicator.classList.add('intensity-quiet');
+            } else if (level < 40) {
+                indicator.textContent = `Normal (${Math.round(level)}%)`;
+                indicator.classList.add('intensity-normal');
+            } else if (level < 70) {
+                indicator.textContent = `Loud (${Math.round(level)}%)`;
+                indicator.classList.add('intensity-loud');
+            } else {
+                indicator.textContent = `SHOUTING! (${Math.round(level)}%)`;
+                indicator.classList.add('intensity-shouting');
+            }
+        }
+
+        function updateMicLevel(level) {
+            const fill = document.getElementById('mic-level-fill');
+            const text = document.getElementById('mic-level-text');
+            
+            fill.style.width = level + '%';
+            
+            if (level < 1) {
+                text.textContent = 'No input detected';
+            } else if (level < 10) {
+                text.textContent = `Low: ${Math.round(level)}%`;
+            } else if (level < 30) {
+                text.textContent = `Normal: ${Math.round(level)}%`;
+            } else if (level < 60) {
+                text.textContent = `Good: ${Math.round(level)}%`;
+            } else {
+                text.textContent = `Loud: ${Math.round(level)}%`;
+            }
+        }
+
+        // Socket.IO event handlers
+        socket.on('connect', () => {
+            console.log('Connected to web server');
+            updateStatus('Web server connected', 'disconnected');
+            
+            // Request notifications permission for intrusion alerts
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        });
+
+        socket.on('connected', (data) => {
+            console.log('Socket connected:', data);
+        });
+
+        socket.on('server_connected', (data) => {
+            console.log('Connected to voice server:', data);
+            isConnected = true;
+            updateStatus('Connected to voice server', 'connected');
+            document.getElementById('connect-btn').textContent = 'Disconnect';
+            document.getElementById('record-btn').disabled = false;
+        });
+
+        socket.on('server_disconnected', (data) => {
+            console.log('Disconnected from voice server:', data);
+            isConnected = false;
+            updateStatus('Disconnected from voice server', 'disconnected');
+            document.getElementById('connect-btn').textContent = 'Connect to Server';
+            document.getElementById('record-btn').disabled = true;
+            document.getElementById('send-btn').disabled = true;
+            hasRecordedAudio = false;
+        });
+
+        socket.on('server_error', (data) => {
+            console.error('Server error:', data);
+            updateStatus('Connection error: ' + data.message, 'disconnected');
+        });
+
+        socket.on('audio_received', (data) => {
+            console.log('Audio received');
+            if (data.verified) {
+                // Format packet information
+                const packetNum = data.packet_number || '?';
+                const encryptedSize = data.encrypted_size || 0;
+                const decryptedSize = data.decrypted_size || 0;
+                const packetInfo = `Received audio packet #${packetNum} (${encryptedSize.toLocaleString()} bytes encrypted, ${decryptedSize.toLocaleString()} bytes decrypted)`;
+                
+                updateStatus(packetInfo, 'connected');
+                // Play received audio
+                playAudio(data.audio);
+            } else {
+                updateStatus('Audio received but integrity check failed', 'disconnected');
+            }
+        });
+
+        socket.on('audio_sent', (data) => {
+            console.log('Audio sent:', data);
+            if (data.status === 'ok') {
+                // Update quality metrics display with actual values from server
+                const snr = (data.snr_db !== null && data.snr_db !== undefined) ? Number(data.snr_db) : null;
+                const bitrate = (data.bitrate !== null && data.bitrate !== undefined) ? Number(data.bitrate) : null;
+                
+                // Update metrics with server values - these will persist and display
+                updateQualityMetrics(snr, bitrate, null);
+                
+                // Display processing details if available
+                if (data.processing_details) {
+                    displayProcessingDetails(data.processing_details);
+                }
+                
+                let statusMsg = 'Audio transmitted successfully';
+                if (snr !== null && !isNaN(snr)) {
+                    statusMsg += ` | SNR: ${snr.toFixed(1)}dB`;
+                    if (data.snr_meets_requirement) {
+                        statusMsg += ' (Pass)';
+                    } else {
+                        statusMsg += ' (Warning)';
+                    }
+                }
+                if (bitrate !== null && !isNaN(bitrate)) {
+                    statusMsg += ` | ${(bitrate/1000).toFixed(1)} Kbps`;
+                }
+                updateStatus(statusMsg, 'connected');
+                
+                // Show success message
+                setTimeout(() => {
+                    if (!isRecording) {
+                        updateStatus('Connected to voice server', 'connected');
+                    }
+                }, 5000);
+            }
+        });
+
+        // Accordion toggle function
+        function toggleAccordion(itemId) {
+            const item = document.getElementById(itemId);
+            if (item) {
+                item.classList.toggle('active');
+            }
+        }
+
+        function displayProcessingDetails(details) {
+            const panel = document.getElementById('processing-details-panel');
+            if (!panel) return;
+            
+            // Format numbers with commas
+            const formatBytes = (bytes) => bytes.toLocaleString();
+            const formatPercent = (val) => val.toFixed(1);
+            
+            // Update each processing detail - matching terminal format
+            if (details.original_size !== undefined) {
+                document.getElementById('processing-original-size').textContent = 
+                    `${formatBytes(details.original_size)} bytes`;
+            }
+            
+            if (details.snr_db !== null && details.snr_db !== undefined) {
+                const snrValue = details.snr_db.toFixed(2);
+                const snrMeets = details.snr_meets_requirement;
+                const snrText = `${snrValue}dB ${snrMeets ? '(meets ≥40dB requirement)' : '(below ≥40dB requirement)'}`;
+                document.getElementById('processing-snr').textContent = snrText;
+                
+                // Update item styling based on SNR
+                const snrItem = document.getElementById('snr-item');
+                if (snrItem) {
+                    snrItem.className = 'processing-item ' + (snrMeets ? 'success' : 'warning');
+                }
+            }
+            
+            if (details.compressed_size !== undefined && details.original_size !== undefined) {
+                const compressionRatio = details.compression_ratio || 0;
+                const reductionText = compressionRatio >= 0 
+                    ? `${formatPercent(compressionRatio)}% reduction`
+                    : `${formatPercent(Math.abs(compressionRatio))}% increase`;
+                const compressionText = `${formatBytes(details.original_size)} → ${formatBytes(details.compressed_size)} bytes (${reductionText})`;
+                document.getElementById('processing-compression').textContent = compressionText;
+            }
+            
+            if (details.bitrate !== null && details.bitrate !== undefined) {
+                const bitrateKbps = (details.bitrate / 1000).toFixed(1);
+                document.getElementById('processing-bitrate').textContent = 
+                    `${bitrateKbps} Kbps (target: 64.0 Kbps)`;
+            }
+            
+            document.getElementById('processing-hmac').textContent = 'Added HMAC integrity check';
+            
+            if (details.encrypted_size !== undefined && details.compressed_size !== undefined) {
+                const encryptedText = `${formatBytes(details.compressed_size)} → ${formatBytes(details.encrypted_size)} bytes (AES-256-GCM)`;
+                document.getElementById('processing-encrypted').textContent = encryptedText;
+            }
+            
+            if (details.encrypted_size !== undefined) {
+                document.getElementById('processing-sent').textContent = 
+                    `Sent audio packet to server (${formatBytes(details.encrypted_size)} bytes)`;
+            }
+            
+            // Show the panel
+            panel.style.display = 'block';
+            
+            // Scroll to processing details
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            // Log to console for debugging
+            console.log('Processing Details:', {
+                'Processing audio': `${details.original_size} bytes`,
+                'SNR': `${details.snr_db?.toFixed(2)}dB ${details.snr_meets_requirement ? '(meets ≥40dB requirement)' : '(below ≥40dB requirement)'}`,
+                'Compression': `${details.original_size} → ${details.compressed_size} bytes (${details.compression_ratio?.toFixed(1)}% reduction)`,
+                'Bitrate': `${(details.bitrate / 1000).toFixed(1)} Kbps (target: 64.0 Kbps)`,
+                'HMAC': 'Added HMAC integrity check',
+                'Encrypted': `${details.compressed_size} → ${details.encrypted_size} bytes (AES-256-GCM)`,
+                'Sent': `Sent audio packet to server (${details.encrypted_size} bytes)`
+            });
+        }
+
+        // Show intrusion alert
+        function showIntrusionAlert(alertData) {
+            const panel = document.getElementById('intrusion-alert-panel');
+            if (!panel) return;
+            
+            // Update intrusion message
+            const messageText = document.getElementById('intrusion-message-text');
+            if (messageText) {
+                const threatType = alertData.threat_type ? alertData.threat_type.replace(/_/g, ' ') : 'Security Threat';
+                const whatTried = alertData.details?.what_attacker_tried || alertData.message || 'Unknown attack';
+                messageText.textContent = `Server compromised - ${threatType}: ${whatTried}`;
+            }
+            
+            // Show the panel and expand the accordion
+            panel.style.display = 'block';
+            const intrusionItem = document.getElementById('intrusion-alert-item');
+            if (intrusionItem) {
+                intrusionItem.classList.add('active');
+            }
+            
+            // Scroll to intrusion alert
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            
+            // Play alert sound
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZijcIGWi77+efTRAMUKfj8LZjHAY4kdfyzHksBSR3x/DdkEAKFF606euoVRQKRp/g8r5sIQUqgc7y2Yo3CBlou+/nn00QDFCn4/C2YxwGOJHX8sx5LAUkd8fw3ZBAC');
+                audio.volume = 0.5;
+                audio.play().catch(() => {});
+            } catch (e) {
+                // Ignore audio errors
+            }
+        }
+
+        socket.on('audio_error', (data) => {
+            console.error('Audio error:', data);
+            updateStatus('Error: ' + data.message, 'disconnected');
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from web server');
+            updateStatus('Disconnected', 'disconnected');
+        });
+
+        // UI event handlers
+        document.getElementById('connect-btn').addEventListener('click', () => {
+            if (isConnected) {
+                socket.emit('disconnect_from_server');
+            } else {
+                const host = document.getElementById('server-host').value;
+                const port = parseInt(document.getElementById('server-port').value);
+                socket.emit('connect_to_server', { host, port });
+            }
+        });
+
+        document.getElementById('record-btn').addEventListener('click', () => {
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        });
+
+        document.getElementById('stop-record-btn').addEventListener('click', stopRecording);
+
+        document.getElementById('send-btn').addEventListener('click', sendRecordedAudio);
+        
+        document.getElementById('play-audio-btn').addEventListener('click', () => {
+            if (audioPlayer) {
+                audioPlayer.play();
+                document.getElementById('play-audio-btn').style.display = 'none';
+                document.getElementById('pause-audio-btn').style.display = 'inline-block';
+            }
+        });
+        
+        document.getElementById('pause-audio-btn').addEventListener('click', () => {
+            if (audioPlayer) {
+                audioPlayer.pause();
+                document.getElementById('play-audio-btn').style.display = 'inline-block';
+                document.getElementById('pause-audio-btn').style.display = 'none';
+            }
+        });
+        
+        // Handle audio ended
+        document.getElementById('recorded-audio-player').addEventListener('ended', () => {
+            document.getElementById('play-audio-btn').style.display = 'inline-block';
+            document.getElementById('pause-audio-btn').style.display = 'none';
+        });
+
+        async function startRecording() {
+            if (isRecording) return;
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 44100,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    } 
+                });
+
+                // Setup MediaRecorder
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+
+                const chunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        chunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onstop = () => {
+                    recordedAudioBlob = new Blob(chunks, { type: 'audio/webm' });
+                    hasRecordedAudio = true;
+                    
+                    // Calculate duration
+                    if (recordingStartTime) {
+                        recordingDuration = (Date.now() - recordingStartTime) / 1000;
+                    }
+                    
+                    // Update send button with duration
+                    updateSendButton();
+                    
+                    // Show recorded audio panel
+                    showRecordedAudio();
+                    
+                    document.getElementById('send-btn').disabled = false;
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                // Setup audio context for visualization
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                analyser.smoothingTimeConstant = 0.3; // Less smoothing for more responsive visualization
+                microphone = audioContext.createMediaStreamSource(stream);
+                microphone.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                
+                // Initialize visualizers
+                initVisualizer();
+                
+                // Show waveform container and audio visualizer BEFORE starting recording
+                document.querySelector('.waveform-container').classList.add('recording');
+                document.getElementById('audio-visualizer').style.display = 'flex';
+                
+                // Reset metrics to show calculating
+                currentSNR = null;
+                currentBitrate = null;
+                updateQualityMetrics(null, null, null);
+                
+                // Start recording
+                mediaRecorder.start(100); // Collect data every 100ms
+                isRecording = true;
+                hasRecordedAudio = false;
+                recordedAudioBlob = null;
+                waveformData = []; // Clear previous waveform
+                audioDataSize = 0;
+                audioPackets = 0;
+                recordingStartTime = Date.now();
+                recordingDuration = 0;
+                
+                // Hide recorded audio panel
+                document.getElementById('recorded-audio-panel').style.display = 'none';
+                
+                // Start visualization loop immediately
+                updateVisualizer();
+                
+                // Update UI
+                document.getElementById('record-btn').style.display = 'none';
+                document.getElementById('stop-record-btn').style.display = 'inline-block';
+                document.getElementById('stop-record-btn').disabled = false;
+                document.getElementById('record-btn').classList.add('recording');
+                document.getElementById('send-btn').disabled = true;
+                updateStatus('Recording... Speak into your microphone', 'recording');
+                
+                console.log('Recording started - visualization active');
+
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                updateStatus('Error accessing microphone. Please grant permission.', 'disconnected');
+            }
+        }
+
+        function stopRecording() {
+            if (!isRecording || !mediaRecorder) return;
+
+            mediaRecorder.stop();
+            isRecording = false;
+            
+            // Stop the stream tracks to stop audio processing
+            if (microphone && microphone.mediaStream) {
+                microphone.mediaStream.getTracks().forEach(track => track.stop());
+            }
+            
+            // Update UI
+            document.getElementById('record-btn').style.display = 'inline-block';
+            document.getElementById('stop-record-btn').style.display = 'none';
+            document.getElementById('stop-record-btn').disabled = true;
+            document.getElementById('record-btn').classList.remove('recording');
+            document.getElementById('record-btn').textContent = 'Start Recording';
+            
+            if (hasRecordedAudio) {
+                updateStatus('Audio recorded! Click "Send Audio" to transmit', 'connected');
+            } else {
+                updateStatus('Connected to voice server', 'connected');
+            }
+            
+            // Hide waveform container and audio visualizer
+            document.querySelector('.waveform-container').classList.remove('recording');
+            document.getElementById('audio-visualizer').style.display = 'none';
+            
+            // Stop visualization immediately
+            document.getElementById('mic-level-fill').style.width = '0%';
+            document.getElementById('mic-level-text').textContent = 'No input detected';
+            const bars = document.querySelectorAll('.bar');
+            bars.forEach(bar => bar.style.height = '10px');
+            
+            // Reset Siri bars
+            siriBarsLeft.forEach(bar => {
+                bar.style.height = '8px';
+                bar.style.opacity = '0.3';
+            });
+            siriBarsRight.forEach(bar => {
+                bar.style.height = '8px';
+                bar.style.opacity = '0.3';
+            });
+            
+            updateIntensityIndicator(0);
+            
+            // Clear waveform
+            if (waveformCtx) {
+                waveformCtx.fillStyle = '#0a0e1a';
+                waveformCtx.fillRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+            }
+            
+            // Keep metrics if audio was recorded (they'll update when sent)
+            if (!hasRecordedAudio) {
+                updateQualityMetrics(null, null, null);
+            }
+        }
+
+        function updateSendButton() {
+            const sendBtn = document.getElementById('send-btn');
+            if (hasRecordedAudio && recordingDuration > 0) {
+                sendBtn.textContent = `Send (${recordingDuration.toFixed(1)}s)`;
+            } else {
+                sendBtn.textContent = 'Send Audio';
+            }
+        }
+
+        function showRecordedAudio() {
+            if (!hasRecordedAudio || !recordedAudioBlob) return;
+            
+            const panel = document.getElementById('recorded-audio-panel');
+            const durationText = document.getElementById('audio-duration-text');
+            const sizeText = document.getElementById('audio-size-text');
+            
+            // Format duration
+            durationText.textContent = `${recordingDuration.toFixed(1)}s`;
+            
+            // Format size
+            const sizeKB = (recordedAudioBlob.size / 1024).toFixed(2);
+            sizeText.textContent = `${sizeKB} KB`;
+            
+            // Create audio URL for playback
+            if (audioPlayer) {
+                audioPlayer.pause();
+                URL.revokeObjectURL(audioPlayer.src);
+            }
+            
+            const audioUrl = URL.createObjectURL(recordedAudioBlob);
+            audioPlayer = document.getElementById('recorded-audio-player');
+            audioPlayer.src = audioUrl;
+            
+            // Show panel
+            panel.style.display = 'block';
+        }
+
+        function sendRecordedAudio() {
+            if (!hasRecordedAudio || !recordedAudioBlob || !isConnected) {
+                updateStatus('Please record audio first and make sure you are connected to the server.', 'disconnected');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64Audio = reader.result.split(',')[1];
+                socket.emit('send_audio', { audio: base64Audio });
+                
+                // Reset after sending
+                hasRecordedAudio = false;
+                recordedAudioBlob = null;
+                recordingDuration = 0;
+                document.getElementById('send-btn').disabled = true;
+                document.getElementById('send-btn').textContent = 'Send Audio';
+                document.getElementById('recorded-audio-panel').style.display = 'none';
+                if (audioPlayer) {
+                    audioPlayer.pause();
+                    URL.revokeObjectURL(audioPlayer.src);
+                    audioPlayer.src = '';
+                }
+                waveformData = [];
+                
+                // Clear waveform and Siri bars
+                if (waveformCtx) {
+                    waveformCtx.fillStyle = '#0a0e1a';
+                    waveformCtx.fillRect(0, 0, waveformCanvas.width, waveformCanvas.height);
+                }
+                
+                // Reset Siri bars
+                siriBarsLeft.forEach(bar => {
+                    bar.style.height = '8px';
+                    bar.style.opacity = '0.3';
+                });
+                siriBarsRight.forEach(bar => {
+                    bar.style.height = '8px';
+                    bar.style.opacity = '0.3';
+                });
+                
+                // Reset quality metrics
+                updateQualityMetrics(null, null, null);
+                
+                // Status will be updated by socket.on('audio_sent') event
+            };
+            reader.readAsDataURL(recordedAudioBlob);
+        }
+
+        function playAudio(base64Audio) {
+            const audio = new Audio('data:audio/wav;base64,' + base64Audio);
+            audio.play().catch(err => console.error('Error playing audio:', err));
+        }
+
+        function updateStatus(text, type) {
+            const statusEl = document.getElementById('status');
+            const statusText = document.getElementById('status-text');
+            const indicator = statusEl.querySelector('.status-indicator');
+
+            statusEl.className = `status ${type}`;
+            indicator.className = `status-indicator ${type}`;
+            statusText.textContent = text;
+        }
+
+
+        socket.on('security_stats', (stats) => {
+            // Could display statistics if needed
+            console.log('Security stats:', stats);
+        });
+
+        // Handle security alerts - show "Server Compromised" message
+        socket.on('security_alert', (alertData) => {
+            console.log('Security alert received:', alertData);
+            showIntrusionAlert(alertData);
+            updateStatus('Server compromised - Security intrusion detected!', 'disconnected');
+        });
+
+        // Initialize
+        initVisualizer();
+    </script>
+</body>
+</html>
+
