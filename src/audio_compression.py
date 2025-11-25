@@ -65,7 +65,7 @@ def compress_to_64kbps(audio_data, sample_rate=8000, bits=8):
         bits: bits per sample (default 8)
     
     Returns:
-        compressed_audio: compressed audio data
+        compressed_audio: compressed audio data (as uint8 for 8-bit, int16 for higher)
         snr_db: SNR in dB
         bitrate: actual bitrate achieved
     """
@@ -74,12 +74,22 @@ def compress_to_64kbps(audio_data, sample_rate=8000, bits=8):
         audio_data = audio_data.astype(np.int16)
     
     # Quantize to target bit depth
-    quantized, snr_db = quantize_audio(audio_data, bits)
+    quantized_int16, snr_db = quantize_audio(audio_data, bits)
+    
+    # Convert to actual 8-bit format (uint8) for size reduction
+    if bits == 8:
+        # Convert from int16 range [-32768, 32767] to uint8 range [0, 255]
+        # Map: -32768 -> 0, 0 -> 128, 32767 -> 255
+        quantized_uint8 = ((quantized_int16.astype(np.int32) + 32768) // 256).astype(np.uint8)
+        compressed_audio = quantized_uint8
+    else:
+        # For other bit depths, keep as int16
+        compressed_audio = quantized_int16
     
     # Calculate actual bitrate
     bitrate = sample_rate * bits
     
-    return quantized, snr_db, bitrate
+    return compressed_audio, snr_db, bitrate
 
 
 def calculate_snr(original, quantized):

@@ -143,6 +143,8 @@ class WebVoiceClient:
             log(f"[Web Client {self.socket_id[:8]}] Bitrate: {bitrate/1000:.1f} Kbps (target: {TARGET_BITRATE/1000} Kbps)", "QUALITY")
             
             # Convert back to bytes
+            # If it's uint8, it's already 1 byte per sample (compressed)
+            # If it's int16, convert to bytes (2 bytes per sample)
             audio_bytes = compressed_audio.tobytes()
             
             # Add integrity check (HMAC)
