@@ -32,7 +32,7 @@ The Secure Voice Communication system is a three-tier architecture:
 └───────────────────────┬─────────────────────────────────────┘
                         │ WebSocket (Socket.IO)
                         │ Port 5000
-┌───────────────────────▼─────────────────────────────────────┐
+┌───────────────────────v─────────────────────────────────────┐
 │              Web Server (Flask + SocketIO)                  │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │  - WebSocket Bridge                                  │   │
@@ -43,7 +43,7 @@ The Secure Voice Communication system is a three-tier architecture:
 └───────────────────────────┼──────────────────────────────────┘
                             │ TCP Socket
                             │ Port 8888
-┌───────────────────────────▼──────────────────────────────────┐
+┌───────────────────────────v──────────────────────────────────┐
 │              Voice Server (Python Socket Server)             │
 │  ┌──────────────────────────────────────────────────────┐   │
 │  │  - Key Exchange (ECDH)                               │   │
@@ -309,7 +309,7 @@ function createWavFromData(data, sampleRate = 44100) {
    - Disabled after encryption
 
 2. **Encryption Status Indicator**:
-   - Shows "🔒 Encrypted" message
+   - Shows " Encrypted" message
    - Appears when audio is encrypted
    - Styled with light blue accent
 
@@ -779,11 +779,11 @@ def verify_integrity(data_with_hmac, key):
 4. **Integrity**: HMAC-SHA256 (tamper detection)
 
 **Security Guarantees**:
-- ✅ End-to-end encryption (server cannot decrypt without client keys)
-- ✅ Forward secrecy (new keys per session)
-- ✅ Tamper detection (HMAC verification)
-- ✅ Authentication (GCM authentication tag)
-- ✅ Replay protection (unique IV per message)
+- [OK] End-to-end encryption (server cannot decrypt without client keys)
+- [OK] Forward secrecy (new keys per session)
+- [OK] Tamper detection (HMAC verification)
+- [OK] Authentication (GCM authentication tag)
+- [OK] Replay protection (unique IV per message)
 
 ---
 
@@ -859,17 +859,17 @@ The system uses **8-bit quantization** to achieve the 64 Kbps bitrate requiremen
 
 | Bit Depth | Quantization Levels | Step Size | Theoretical Max SNR | Bitrate (8kHz) | Meets 40dB Requirement? |
 |-----------|-------------------|-----------|---------------------|----------------|-------------------------|
-| **16-bit** | 65,536 | 0.0000305 | ~98.1 dB | 128 Kbps | ✅ Yes (exceeds) |
-| **12-bit** | 4,096 | 0.000488 | ~74.0 dB | 96 Kbps | ✅ Yes (exceeds) |
-| **10-bit** | 1,024 | 0.001953 | ~62.0 dB | 80 Kbps | ✅ Yes (exceeds) |
-| **8-bit** | 256 | 0.0078125 | ~49.9 dB | **64 Kbps** | ✅ **Yes (current)** |
-| **7-bit** | 128 | 0.015625 | ~43.9 dB | 56 Kbps | ⚠️ Marginal (may fail) |
-| **6-bit** | 64 | 0.03125 | ~37.9 dB | 48 Kbps | ❌ **No (fails)** |
-| **5-bit** | 32 | 0.0625 | ~31.9 dB | 40 Kbps | ❌ No (fails) |
-| **4-bit** | 16 | 0.125 | ~25.8 dB | 32 Kbps | ❌ **No (fails)** |
-| **3-bit** | 8 | 0.25 | ~19.8 dB | 24 Kbps | ❌ No (fails) |
-| **2-bit** | 4 | 0.5 | ~13.8 dB | 16 Kbps | ❌ No (fails) |
-| **1-bit** | 2 | 1.0 | ~7.8 dB | 8 Kbps | ❌ No (fails) |
+| **16-bit** | 65,536 | 0.0000305 | ~98.1 dB | 128 Kbps | [OK] Yes (exceeds) |
+| **12-bit** | 4,096 | 0.000488 | ~74.0 dB | 96 Kbps | [OK] Yes (exceeds) |
+| **10-bit** | 1,024 | 0.001953 | ~62.0 dB | 80 Kbps | [OK] Yes (exceeds) |
+| **8-bit** | 256 | 0.0078125 | ~49.9 dB | **64 Kbps** | [OK] **Yes (current)** |
+| **7-bit** | 128 | 0.015625 | ~43.9 dB | 56 Kbps | [WARNING] Marginal (may fail) |
+| **6-bit** | 64 | 0.03125 | ~37.9 dB | 48 Kbps | [FAIL] **No (fails)** |
+| **5-bit** | 32 | 0.0625 | ~31.9 dB | 40 Kbps | [FAIL] No (fails) |
+| **4-bit** | 16 | 0.125 | ~25.8 dB | 32 Kbps | [FAIL] **No (fails)** |
+| **3-bit** | 8 | 0.25 | ~19.8 dB | 24 Kbps | [FAIL] No (fails) |
+| **2-bit** | 4 | 0.5 | ~13.8 dB | 16 Kbps | [FAIL] No (fails) |
+| **1-bit** | 2 | 1.0 | ~7.8 dB | 8 Kbps | [FAIL] No (fails) |
 
 #### Theoretical SNR Formula
 
@@ -922,11 +922,11 @@ bitrate = 8000 * 8  # 64,000 bps = 64 Kbps ✓
 ```
 
 **Advantages**:
-- ✅ **Meets Bitrate Requirement**: Exactly 64 Kbps at 8kHz sample rate
-- ✅ **Meets SNR Requirement**: Theoretical max ~49.9 dB (above 40dB threshold)
-- ✅ **Good Quality**: 256 levels provide sufficient audio detail
-- ✅ **Small Step Size**: 0.0078125 allows fine-grained quantization
-- ✅ **Balanced**: Optimal trade-off between quality and bitrate
+- [OK] **Meets Bitrate Requirement**: Exactly 64 Kbps at 8kHz sample rate
+- [OK] **Meets SNR Requirement**: Theoretical max ~49.9 dB (above 40dB threshold)
+- [OK] **Good Quality**: 256 levels provide sufficient audio detail
+- [OK] **Small Step Size**: 0.0078125 allows fine-grained quantization
+- [OK] **Balanced**: Optimal trade-off between quality and bitrate
 
 **Actual SNR Range**:
 - **Best case** (full-scale signal): ~48-50 dB
@@ -973,12 +973,12 @@ error_power = (0.125 ** 2) / 12  # ≈ 0.001302
 | 10-bit | Very good | High-quality voice | Exceeds requirement |
 | **8-bit** | **Good (current)** | **Voice communication** | **Meets requirement** |
 | 7-bit | Acceptable | Low-bandwidth voice | Marginal |
-| 6-bit | Poor | Emergency communication | ❌ Fails |
-| 5-bit | Very poor | Extremely low bandwidth | ❌ Fails |
-| **4-bit** | **Unusable** | **Not recommended** | **❌ Fails** |
-| 3-bit | Severely distorted | Not practical | ❌ Fails |
-| 2-bit | Extremely distorted | Not practical | ❌ Fails |
-| 1-bit | Binary (on/off) | Not practical | ❌ Fails |
+| 6-bit | Poor | Emergency communication | [FAIL] Fails |
+| 5-bit | Very poor | Extremely low bandwidth | [FAIL] Fails |
+| **4-bit** | **Unusable** | **Not recommended** | **[FAIL] Fails** |
+| 3-bit | Severely distorted | Not practical | [FAIL] Fails |
+| 2-bit | Extremely distorted | Not practical | [FAIL] Fails |
+| 1-bit | Binary (on/off) | Not practical | [FAIL] Fails |
 
 #### Why Lower Bit Depths Fail
 
@@ -1024,11 +1024,11 @@ error_power = (0.125 ** 2) / 12  # ≈ 0.001302
 
 | Bit Depth | Step Size | Relative Error (at 50% signal) | Quality Impact |
 |-----------|-----------|-------------------------------|----------------|
-| 8-bit | 0.0078125 | 1.56% | ✅ Minimal, high quality |
-| 7-bit | 0.015625 | 3.13% | ⚠️ Noticeable, acceptable |
-| 6-bit | 0.03125 | 6.25% | ❌ Audible artifacts |
-| 5-bit | 0.0625 | 12.5% | ❌ Significant distortion |
-| **4-bit** | **0.125** | **25%** | **❌ Severe distortion** |
+| 8-bit | 0.0078125 | 1.56% | [OK] Minimal, high quality |
+| 7-bit | 0.015625 | 3.13% | [WARNING] Noticeable, acceptable |
+| 6-bit | 0.03125 | 6.25% | [FAIL] Audible artifacts |
+| 5-bit | 0.0625 | 12.5% | [FAIL] Significant distortion |
+| **4-bit** | **0.125** | **25%** | **[FAIL] Severe distortion** |
 
 **Step Size Formula**:
 ```python
@@ -1503,7 +1503,7 @@ VoiceClient
        │
        │ 2. Convert to Base64
        │
-       ▼
+       v
 ┌─────────────────────────────────────┐
 │  SocketIO Event: 'send_audio'      │
 │  {audio: base64_string}             │
@@ -1511,7 +1511,7 @@ VoiceClient
        │
        │ WebSocket (Port 5000)
        │
-       ▼
+       v
 ┌─────────────────────────────────────┐
 │      Web Server (Flask/SocketIO)    │
 │  ┌──────────────────────────────┐   │
@@ -1528,7 +1528,7 @@ VoiceClient
          │ TCP Socket (Port 8888)
          │ Message Type: 'A'
          │
-         ▼
+         v
 ┌─────────────────────────────────────┐
 │      Voice Server (Python)          │
 │  ┌──────────────────────────────┐   │
@@ -1544,7 +1544,7 @@ VoiceClient
          │ TCP Socket (Port 8888)
          │ Message Type: 'A'
          │
-         ▼
+         v
 ┌─────────────────────────────────────┐
 │      Web Server (Flask/SocketIO)    │
 │  ┌──────────────────────────────┐   │
@@ -1558,7 +1558,7 @@ VoiceClient
          │ WebSocket (Port 5000)
          │ SocketIO Event: 'audio_received'
          │
-         ▼
+         v
 ┌─────────────────────────────────────┐
 │   Browser (Frontend)                │
 │  ┌──────────────────────────────┐   │
@@ -1619,25 +1619,25 @@ VoiceClient
 │         Audio Data (Plaintext)          │
 └──────────────────┬──────────────────────┘
                    │
-                   ▼
+                   v
 ┌─────────────────────────────────────────┐
 │      HMAC-SHA256 Integrity Check        │
 │  [Audio Data][32 bytes: HMAC]          │
 └──────────────────┬──────────────────────┘
                    │
-                   ▼
+                   v
 ┌─────────────────────────────────────────┐
 │      AES-256-GCM Encryption             │
 │  [12 bytes: IV][16 bytes: Tag][Cipher]  │
 └──────────────────┬──────────────────────┘
                    │
-                   ▼
+                   v
 ┌─────────────────────────────────────────┐
 │      Network Protocol Framing            │
 │  [4 bytes: Length][1 byte: Type][Data]  │
 └──────────────────┬──────────────────────┘
                    │
-                   ▼
+                   v
 ┌─────────────────────────────────────────┐
 │         TCP Socket Transmission          │
 └─────────────────────────────────────────┘

@@ -46,7 +46,7 @@ This provides step-by-step demonstrations of how the system protects against att
 - Attacker attempts decryption with wrong/unknown key
 - Decryption fails (GCM authentication tag mismatch)
 
-**Expected Result**: ✅ PASS
+**Expected Result**: [OK] PASS
 - Attacker cannot decrypt messages without the proper AES key
 - GCM mode raises exception when authentication tag doesn't match
 
@@ -66,7 +66,7 @@ This provides step-by-step demonstrations of how the system protects against att
 - Attacker generates their own key pair and attempts key derivation
 - Derived key is different from legitimate key
 
-**Expected Result**: ✅ PASS
+**Expected Result**: [OK] PASS
 - Attacker's derived key is different from legitimate key
 - Attacker cannot decrypt messages encrypted with legitimate key
 
@@ -86,7 +86,7 @@ This provides step-by-step demonstrations of how the system protects against att
 - Attacker cannot derive correct shared secret without private key
 - Attacker's derived key is different from legitimate key
 
-**Expected Result**: ✅ PASS
+**Expected Result**: [OK] PASS
 - Imposter's key is different from legitimate key
 - Imposter cannot decrypt messages intended for legitimate client
 
@@ -105,7 +105,7 @@ This provides step-by-step demonstrations of how the system protects against att
 - Each client gets a unique AES key (different salts)
 - Client 1 cannot decrypt Client 2's messages
 
-**Expected Result**: ✅ PASS
+**Expected Result**: [OK] PASS
 - Each client has a unique AES key
 - Clients cannot decrypt each other's messages
 
@@ -125,7 +125,7 @@ This provides step-by-step demonstrations of how the system protects against att
 - Attempts to decrypt modified message
 - Decryption fails due to authentication tag mismatch
 
-**Expected Result**: ✅ PASS
+**Expected Result**: [OK] PASS
 - Modified message cannot be decrypted
 - GCM authentication tag detects tampering
 
@@ -144,7 +144,7 @@ This provides step-by-step demonstrations of how the system protects against att
 - Same message encrypted twice produces different ciphertexts
 - Replayed messages can be detected (though this test mainly verifies IV uniqueness)
 
-**Expected Result**: ✅ PASS
+**Expected Result**: [OK] PASS
 - Each encryption uses unique IV
 - Replay detection is possible (though not fully implemented in this test)
 
@@ -163,7 +163,7 @@ This provides step-by-step demonstrations of how the system protects against att
 - MITM tries to derive shared secret without private keys
 - MITM's derived key is different from legitimate key
 
-**Expected Result**: ✅ PASS
+**Expected Result**: [OK] PASS
 - MITM cannot derive correct key without private keys
 - MITM cannot decrypt legitimate messages
 
@@ -182,10 +182,10 @@ This provides step-by-step demonstrations of how the system protects against att
 - Tampered data fails HMAC verification
 - Wrong key fails HMAC verification
 
-**Expected Result**: ✅ PASS
-- Original data: ✅ Passes
-- Tampered data: ❌ Fails
-- Wrong key: ❌ Fails
+**Expected Result**: [OK] PASS
+- Original data: [OK] Passes
+- Tampered data: [FAIL] Fails
+- Wrong key: [FAIL] Fails
 
 **Security Mechanism**: HMAC-SHA256 provides cryptographic integrity verification. Any modification invalidates the HMAC.
 
@@ -229,7 +229,7 @@ python3 -m unittest tests.test_security_attacks.TestIntegrityProtection
 When all tests pass, you should see:
 
 ```
-✅ All security tests PASSED!
+[OK] All security tests PASSED!
 The system is protected against:
   - Eavesdropping attacks
   - Imposter client attacks
@@ -239,22 +239,22 @@ The system is protected against:
 
 ## Security Guarantees Verified
 
-### ✅ Confidentiality
+### [OK] Confidentiality
 - **Verified by**: Eavesdropping tests
 - **Mechanism**: AES-256-GCM encryption
 - **Result**: Without the correct key, encrypted data cannot be decrypted
 
-### ✅ Authentication
+### [OK] Authentication
 - **Verified by**: Imposter client tests
 - **Mechanism**: ECDH key exchange requires private keys
 - **Result**: Attackers cannot impersonate clients without private keys
 
-### ✅ Integrity
+### [OK] Integrity
 - **Verified by**: MITM and HMAC tests
 - **Mechanism**: GCM authentication tag + HMAC-SHA256
 - **Result**: Any message modification is detected
 
-### ✅ Forward Secrecy
+### [OK] Forward Secrecy
 - **Verified by**: Key exchange tests
 - **Mechanism**: New key pair generated per session
 - **Result**: Compromised keys don't affect past sessions
@@ -263,12 +263,12 @@ The system is protected against:
 
 | Attack Type | Protection Mechanism | Test Status |
 |------------|---------------------|-------------|
-| **Eavesdropping** | AES-256-GCM encryption | ✅ Protected |
-| **Imposter Client** | ECDH requires private key | ✅ Protected |
-| **MITM Modification** | GCM authentication tag | ✅ Protected |
-| **MITM Key Derivation** | ECDH requires private keys | ✅ Protected |
-| **Message Tampering** | HMAC-SHA256 integrity | ✅ Protected |
-| **Replay Attacks** | Unique IV per message | ✅ Protected |
+| **Eavesdropping** | AES-256-GCM encryption | [OK] Protected |
+| **Imposter Client** | ECDH requires private key | [OK] Protected |
+| **MITM Modification** | GCM authentication tag | [OK] Protected |
+| **MITM Key Derivation** | ECDH requires private keys | [OK] Protected |
+| **Message Tampering** | HMAC-SHA256 integrity | [OK] Protected |
+| **Replay Attacks** | Unique IV per message | [OK] Protected |
 
 ## Notes
 

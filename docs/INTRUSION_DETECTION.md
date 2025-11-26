@@ -200,18 +200,18 @@ ids.register_alert_callback(my_alert_handler)
 
 ### What Gets Detected
 
-✅ **Eavesdropping**: Attackers trying to decrypt without proper key  
-✅ **Imposter Clients**: Attackers trying to impersonate legitimate clients  
-✅ **MITM Attacks**: Attackers modifying or intercepting messages  
-✅ **Message Tampering**: Attackers modifying message content  
-✅ **Brute Force**: Rapid connection attempts  
+[OK] **Eavesdropping**: Attackers trying to decrypt without proper key  
+[OK] **Imposter Clients**: Attackers trying to impersonate legitimate clients  
+[OK] **MITM Attacks**: Attackers modifying or intercepting messages  
+[OK] **Message Tampering**: Attackers modifying message content  
+[OK] **Brute Force**: Rapid connection attempts  
 
 ### What Gets Protected
 
-✅ **Confidentiality**: Encryption prevents unauthorized reading  
-✅ **Authentication**: Key exchange prevents impersonation  
-✅ **Integrity**: HMAC and GCM tags detect tampering  
-✅ **Availability**: Connection pattern detection prevents DoS  
+[OK] **Confidentiality**: Encryption prevents unauthorized reading  
+[OK] **Authentication**: Key exchange prevents impersonation  
+[OK] **Integrity**: HMAC and GCM tags detect tampering  
+[OK] **Availability**: Connection pattern detection prevents DoS  
 
 ## Integration Points
 

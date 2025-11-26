@@ -60,7 +60,7 @@ def test_eavesdropping_scenario():
         # Derive legitimate key
         shared_secret = derive_shared_secret(client_private_key, server_public_key)
         legitimate_aes_key, _ = derive_aes_key(shared_secret, salt)
-        print("   ✅ Legitimate client established secure connection")
+        print("   [OK] Legitimate client established secure connection")
         print()
         
         # Encrypt test message
@@ -73,7 +73,7 @@ def test_eavesdropping_scenario():
         
         # Eavesdropper intercepts
         print("3. Eavesdropper intercepts encrypted message...")
-        print("   ⚠️  Eavesdropper has encrypted data but NOT the AES key")
+        print("   [WARNING] Eavesdropper has encrypted data but NOT the AES key")
         print()
         
         # Eavesdropper tries to decrypt with wrong key
@@ -82,11 +82,11 @@ def test_eavesdropping_scenario():
         
         try:
             decrypted = decrypt_data(encrypted_message, wrong_key)
-            print("   ❌ SECURITY BREACH: Eavesdropper decrypted message!")
+            print("   [FAIL] SECURITY BREACH: Eavesdropper decrypted message!")
             print(f"   Decrypted: {decrypted[:50]}...")
             return False
         except Exception as e:
-            print("   ✅ PROTECTED: Decryption failed with wrong key")
+            print("   [OK] PROTECTED: Decryption failed with wrong key")
             print(f"   Error: {str(e)[:100]}")
             print()
             print("   Result: Eavesdropper CANNOT read the message without the proper key")
@@ -116,12 +116,12 @@ def test_imposter_scenario():
         # Legitimate client generates key pair
         print("1. Legitimate client generates key pair...")
         legitimate_private_key, legitimate_public_key = generate_key_pair()
-        print("   ✅ Key pair generated")
+        print("   [OK] Key pair generated")
         print()
         
         # Attacker steals public key (but not private key)
         print("2. Attacker steals legitimate client's PUBLIC KEY...")
-        print("   ⚠️  Attacker has public key but NOT the private key")
+        print("   [WARNING] Attacker has public key but NOT the private key")
         stolen_public_key_bytes = serialize_public_key(legitimate_public_key)
         print()
         
@@ -134,7 +134,7 @@ def test_imposter_scenario():
         # Imposter sends stolen public key
         send_message(imposter_socket, 'K', stolen_public_key_bytes)
         _, salt = receive_message(imposter_socket)
-        print("   ✅ Imposter connected and received salt")
+        print("   [OK] Imposter connected and received salt")
         print()
         
         # Imposter tries to derive key
@@ -144,7 +144,7 @@ def test_imposter_scenario():
         imposter_private_key, _ = generate_key_pair()
         imposter_shared_secret = derive_shared_secret(imposter_private_key, server_public_key)
         imposter_aes_key, _ = derive_aes_key(imposter_shared_secret, salt)
-        print("   ⚠️  Imposter derived a key, but it's DIFFERENT from legitimate key")
+        print("   [WARNING] Imposter derived a key, but it's DIFFERENT from legitimate key")
         print()
         
         # Legitimate client derives correct key
@@ -154,10 +154,10 @@ def test_imposter_scenario():
         # Compare keys
         print("5. Comparing keys...")
         if imposter_aes_key == legitimate_aes_key:
-            print("   ❌ SECURITY BREACH: Imposter has same key as legitimate client!")
+            print("   [FAIL] SECURITY BREACH: Imposter has same key as legitimate client!")
             return False
         else:
-            print("   ✅ PROTECTED: Imposter's key is DIFFERENT from legitimate key")
+            print("   [OK] PROTECTED: Imposter's key is DIFFERENT from legitimate key")
             print(f"   Key match: {imposter_aes_key == legitimate_aes_key}")
             print()
         
@@ -169,12 +169,12 @@ def test_imposter_scenario():
         try:
             decrypted = decrypt_data(encrypted_with_legitimate, imposter_aes_key)
             if decrypted == test_message:
-                print("   ❌ SECURITY BREACH: Imposter decrypted legitimate message!")
+                print("   [FAIL] SECURITY BREACH: Imposter decrypted legitimate message!")
                 return False
             else:
-                print("   ✅ PROTECTED: Decryption failed (keys don't match)")
+                print("   [OK] PROTECTED: Decryption failed (keys don't match)")
         except Exception as e:
-            print("   ✅ PROTECTED: Decryption failed with authentication error")
+            print("   [OK] PROTECTED: Decryption failed with authentication error")
             print(f"   Error: {str(e)[:100]}")
             print()
             print("   Result: Imposter CANNOT decrypt messages without the private key")
@@ -213,7 +213,7 @@ def test_mitm_scenario():
         
         shared_secret = derive_shared_secret(client_private_key, server_public_key)
         aes_key, _ = derive_aes_key(shared_secret, salt)
-        print("   ✅ Secure connection established")
+        print("   [OK] Secure connection established")
         print()
         
         # Encrypt message
@@ -230,7 +230,7 @@ def test_mitm_scenario():
         # Modify a byte in the ciphertext
         if len(modified_encrypted) > 50:
             modified_encrypted[50] = (modified_encrypted[50] + 1) % 256
-        print("   ⚠️  Message modified (bit flipped)")
+        print("   [WARNING] Message modified (bit flipped)")
         print()
         
         # Try to decrypt modified message
@@ -238,15 +238,15 @@ def test_mitm_scenario():
         try:
             decrypted = decrypt_data(bytes(modified_encrypted), aes_key)
             if decrypted == original_message:
-                print("   ❌ SECURITY BREACH: Modified message decrypted successfully!")
+                print("   [FAIL] SECURITY BREACH: Modified message decrypted successfully!")
                 return False
             else:
-                print("   ⚠️  Message decrypted but data is corrupted")
+                print("   [WARNING] Message decrypted but data is corrupted")
                 print(f"   Decrypted: {decrypted[:50]}...")
                 print("   (This shouldn't happen with GCM mode)")
                 return False
         except Exception as e:
-            print("   ✅ PROTECTED: Decryption failed - authentication tag invalid")
+            print("   [OK] PROTECTED: Decryption failed - authentication tag invalid")
             print(f"   Error: {str(e)[:100]}")
             print()
             print("   Result: MITM CANNOT modify messages without detection")
@@ -286,9 +286,9 @@ def test_integrity_protection():
     print("3. Verifying original data...")
     is_valid, recovered = verify_integrity(audio_with_hmac, integrity_key)
     if is_valid and recovered == original_audio:
-        print("   ✅ Original data passes integrity check")
+        print("   [OK] Original data passes integrity check")
     else:
-        print("   ❌ Integrity check failed on original data!")
+        print("   [FAIL] Integrity check failed on original data!")
         return False
     print()
     
@@ -296,20 +296,20 @@ def test_integrity_protection():
     print("4. Attacker tampers with data...")
     tampered = bytearray(audio_with_hmac)
     tampered[10] = (tampered[10] + 1) % 256  # Modify a byte
-    print("   ⚠️  Data modified")
+    print("   [WARNING] Data modified")
     print()
     
     # Verify tampered data
     print("5. Verifying tampered data...")
     is_valid, _ = verify_integrity(bytes(tampered), integrity_key)
     if not is_valid:
-        print("   ✅ PROTECTED: Tampered data detected!")
+        print("   [OK] PROTECTED: Tampered data detected!")
         print("   HMAC verification failed")
         print()
         print("   Result: HMAC integrity check prevents undetected tampering")
         return True
     else:
-        print("   ❌ SECURITY BREACH: Tampered data passed integrity check!")
+        print("   [FAIL] SECURITY BREACH: Tampered data passed integrity check!")
         return False
 
 
@@ -351,14 +351,14 @@ def main():
     
     all_passed = True
     for test_name, passed in results:
-        status = "✅ PASSED" if passed else "❌ FAILED"
+        status = "[PASSED]" if passed else "[FAILED]"
         print(f"  {test_name}: {status}")
         if not passed:
             all_passed = False
     
     print()
     if all_passed:
-        print("✅ All security tests PASSED!")
+        print("[PASSED] All security tests PASSED!")
         print("\nThe system is protected against:")
         print("  • Eavesdropping attacks (encryption prevents reading)")
         print("  • Imposter clients (ECDH requires private key)")
@@ -366,7 +366,7 @@ def main():
         print("  • Message tampering (HMAC integrity check)")
         return 0
     else:
-        print("❌ Some security tests FAILED!")
+        print("[FAILED] Some security tests FAILED!")
         print("Review the test output above.")
         return 1
 

@@ -83,27 +83,27 @@ python3 demo_security.py
 ### 1. Encryption (AES-256-GCM)
 - **Protection**: Confidentiality
 - **Tested**: Eavesdropping scenarios
-- **Result**: ✅ Without correct key, decryption fails
+- **Result**: [OK] Without correct key, decryption fails
 
 ### 2. Key Exchange (ECDH)
 - **Protection**: Authentication, key derivation
 - **Tested**: Imposter client, MITM key derivation
-- **Result**: ✅ Requires private keys from both parties
+- **Result**: [OK] Requires private keys from both parties
 
 ### 3. Authentication Tags (GCM)
 - **Protection**: Integrity, tampering detection
 - **Tested**: MITM modification scenarios
-- **Result**: ✅ Modified messages fail authentication
+- **Result**: [OK] Modified messages fail authentication
 
 ### 4. HMAC Integrity (HMAC-SHA256)
 - **Protection**: Content integrity
 - **Tested**: Message tampering scenarios
-- **Result**: ✅ Tampered data fails verification
+- **Result**: [OK] Tampered data fails verification
 
 ### 5. Unique Session Keys
 - **Protection**: Forward secrecy, client isolation
 - **Tested**: Multiple client scenarios
-- **Result**: ✅ Each client gets unique encryption key
+- **Result**: [OK] Each client gets unique encryption key
 
 ## Running the Tests
 
@@ -135,7 +135,7 @@ python3 -m unittest tests.test_security_attacks.TestImposterClient
 
 When all tests pass:
 ```
-✅ All security tests PASSED!
+[OK] All security tests PASSED!
 The system is protected against:
   - Eavesdropping attacks
   - Imposter client attacks
@@ -147,14 +147,14 @@ The system is protected against:
 
 | Attack Type | Test Coverage | Status |
 |------------|--------------|--------|
-| Eavesdropping (decryption) | ✅ | Covered |
-| Eavesdropping (key derivation) | ✅ | Covered |
-| Imposter client | ✅ | Covered |
-| MITM (modification) | ✅ | Covered |
-| MITM (key derivation) | ✅ | Covered |
-| MITM (replay) | ✅ | Covered |
-| Message tampering | ✅ | Covered |
-| HMAC integrity | ✅ | Covered |
+| Eavesdropping (decryption) | [OK] | Covered |
+| Eavesdropping (key derivation) | [OK] | Covered |
+| Imposter client | [OK] | Covered |
+| MITM (modification) | [OK] | Covered |
+| MITM (key derivation) | [OK] | Covered |
+| MITM (replay) | [OK] | Covered |
+| Message tampering | [OK] | Covered |
+| HMAC integrity | [OK] | Covered |
 
 ## Implementation Details
 

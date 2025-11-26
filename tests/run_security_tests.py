@@ -69,7 +69,7 @@ def run_security_tests():
         print()
     
     if result.wasSuccessful():
-        print("✅ All security tests PASSED!")
+        print("[PASSED] All security tests PASSED!")
         print("The system is protected against:")
         print("  - Eavesdropping attacks")
         print("  - Imposter client attacks")
@@ -77,7 +77,7 @@ def run_security_tests():
         print("  - Message tampering")
         return 0
     else:
-        print("❌ Some security tests FAILED!")
+        print("[FAILED] Some security tests FAILED!")
         print("Review the failures above.")
         return 1
 

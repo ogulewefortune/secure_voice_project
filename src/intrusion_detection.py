@@ -96,6 +96,8 @@ class IntrusionDetectionSystem:
                 callback(alert)
             except Exception as e:
                 print(f"Error in alert callback: {e}")
+                import traceback
+                traceback.print_exc()
     
     def detect_decryption_failure(self, source_ip, error_message):
         """

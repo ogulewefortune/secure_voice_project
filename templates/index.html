@@ -16,7 +16,7 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            background: linear-gradient(180deg, #0a0e1a 0%, #1a2342 50%, #0f1626 100%);
+            background: linear-gradient(180deg, #0a0a0f 0%, #1a0f2e 30%, #1a1a3e 60%, #0f1a2e 100%);
             background-attachment: fixed;
             min-height: 100vh;
             margin: 0;
@@ -36,8 +36,9 @@
             width: 100%;
             height: 100%;
             background: 
-                radial-gradient(circle at 20% 30%, rgba(30, 58, 138, 0.12) 0%, transparent 50%),
-                radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
+                radial-gradient(circle at 20% 30%, rgba(219, 39, 119, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(147, 51, 234, 0.12) 0%, transparent 60%),
+                radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
             pointer-events: none;
             z-index: 0;
         }
@@ -62,6 +63,124 @@
             position: sticky;
             top: 0;
             z-index: 100;
+        }
+
+        /* Adjust container position when threat banner is shown */
+        .threat-alert-banner.show ~ .container {
+            margin-top: 60px;
+        }
+
+        .threat-alert-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, rgba(255, 59, 48, 0.95) 0%, rgba(219, 39, 119, 0.95) 100%);
+            backdrop-filter: saturate(180%) blur(20px);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            padding: 16px 40px;
+            z-index: 1000;
+            display: none;
+            border-bottom: 2px solid rgba(255, 59, 48, 0.5);
+            box-shadow: 0 4px 20px rgba(255, 59, 48, 0.4);
+            animation: threatPulse 2s ease-in-out infinite;
+        }
+
+        .threat-alert-banner.show {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        @keyframes threatPulse {
+            0%, 100% {
+                box-shadow: 0 4px 20px rgba(255, 59, 48, 0.4);
+            }
+            50% {
+                box-shadow: 0 4px 30px rgba(255, 59, 48, 0.6), 0 0 40px rgba(255, 59, 48, 0.3);
+            }
+        }
+
+        .threat-alert-content {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .threat-alert-icon {
+            font-size: 24px;
+            animation: threatShake 0.5s ease-in-out infinite;
+        }
+
+        @keyframes threatShake {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-10deg); }
+            75% { transform: rotate(10deg); }
+        }
+
+        .threat-alert-text {
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 15px;
+            letter-spacing: -0.2px;
+        }
+
+        .threat-alert-details {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .threat-alert-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: #ffffff;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.2s ease;
+        }
+
+        .threat-alert-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .threat-counter-badge {
+            position: fixed;
+            top: 20px;
+            right: 40px;
+            background: linear-gradient(135deg, rgba(255, 59, 48, 0.95) 0%, rgba(219, 39, 119, 0.95) 100%);
+            color: #ffffff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 101;
+            display: none;
+            box-shadow: 0 2px 12px rgba(255, 59, 48, 0.4);
+            animation: badgePulse 2s ease-in-out infinite;
+        }
+
+        .threat-counter-badge.show {
+            display: block;
+        }
+
+        @keyframes badgePulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 2px 12px rgba(255, 59, 48, 0.4);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 4px 16px rgba(255, 59, 48, 0.6);
+            }
         }
 
         h1 {
@@ -232,15 +351,15 @@
         }
 
         .button-primary {
-            background: rgba(30, 58, 138, 0.9);
+            background: linear-gradient(135deg, rgba(219, 39, 119, 0.9) 0%, rgba(147, 51, 234, 0.9) 50%, rgba(59, 130, 246, 0.9) 100%);
             color: #ffffff;
             border: none;
-            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+            box-shadow: 0 2px 8px rgba(219, 39, 119, 0.3);
         }
 
         .button-primary:hover:not(:disabled) {
-            background: rgba(37, 99, 235, 1);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, rgba(236, 72, 153, 1) 0%, rgba(168, 85, 247, 1) 50%, rgba(96, 165, 250, 1) 100%);
+            box-shadow: 0 4px 12px rgba(219, 39, 119, 0.4);
             transform: translateY(-1px);
         }
 
@@ -295,17 +414,17 @@
         }
 
         .button-encrypt {
-            background: rgba(30, 58, 138, 0.9);
+            background: linear-gradient(135deg, rgba(147, 51, 234, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%);
             color: #ffffff;
             font-size: 15px;
             padding: 14px 28px;
             border: none;
-            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+            box-shadow: 0 2px 8px rgba(147, 51, 234, 0.3);
         }
 
         .button-encrypt:hover:not(:disabled) {
-            background: rgba(37, 99, 235, 1);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, rgba(168, 85, 247, 1) 0%, rgba(96, 165, 250, 1) 100%);
+            box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
             transform: translateY(-1px);
         }
 
@@ -315,13 +434,13 @@
         }
 
         .button-encrypt.encrypted {
-            background: rgba(52, 199, 89, 0.9);
-            box-shadow: 0 2px 8px rgba(52, 199, 89, 0.3);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%);
+            box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
         }
 
         .button-encrypt.encrypted:hover:not(:disabled) {
-            background: rgba(52, 199, 89, 1);
-            box-shadow: 0 4px 12px rgba(52, 199, 89, 0.35);
+            background: linear-gradient(135deg, rgba(52, 199, 89, 1) 0%, rgba(96, 165, 250, 1) 100%);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.35);
         }
 
         @keyframes pulse-button {
@@ -365,7 +484,11 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background: radial-gradient(circle at center, rgba(30, 58, 138, 0.15) 0%, transparent 70%);
+            background: radial-gradient(circle at center, 
+                rgba(219, 39, 119, 0.12) 0%, 
+                rgba(147, 51, 234, 0.1) 30%,
+                rgba(59, 130, 246, 0.08) 60%,
+                transparent 80%);
             pointer-events: none;
             animation: radial-pulse 6s ease-in-out infinite;
         }
@@ -404,15 +527,17 @@
             width: 120px;
             height: 120px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(30, 58, 138, 0.15) 100%);
-            border: 1px solid rgba(59, 130, 246, 0.3);
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(219, 39, 119, 0.15) 50%, rgba(59, 130, 246, 0.12) 100%);
+            border: 1px solid rgba(147, 51, 234, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
             z-index: 10;
             box-shadow: 
-                0 0 40px rgba(30, 58, 138, 0.3),
+                0 0 40px rgba(219, 39, 119, 0.3),
+                0 0 60px rgba(147, 51, 234, 0.2),
+                0 0 80px rgba(59, 130, 246, 0.15),
                 inset 0 0 30px rgba(255, 255, 255, 0.05);
             animation: logo-pulse 4s ease-in-out infinite;
         }
@@ -421,13 +546,17 @@
             0%, 100% { 
                 transform: scale(1);
                 box-shadow: 
-                    0 0 40px rgba(30, 58, 138, 0.3),
+                    0 0 40px rgba(219, 39, 119, 0.3),
+                    0 0 60px rgba(147, 51, 234, 0.2),
+                    0 0 80px rgba(59, 130, 246, 0.15),
                     inset 0 0 30px rgba(255, 255, 255, 0.05);
             }
             50% { 
                 transform: scale(1.05);
                 box-shadow: 
-                    0 0 60px rgba(59, 130, 246, 0.4),
+                    0 0 60px rgba(236, 72, 153, 0.4),
+                    0 0 90px rgba(168, 85, 247, 0.3),
+                    0 0 120px rgba(96, 165, 250, 0.2),
                     inset 0 0 40px rgba(255, 255, 255, 0.08);
             }
         }
@@ -437,9 +566,10 @@
             height: 90px;
             border-radius: 50%;
             background: linear-gradient(135deg, 
-                rgba(30, 58, 138, 0.7) 0%,
-                rgba(59, 130, 246, 0.6) 50%,
-                rgba(147, 197, 253, 0.5) 100%);
+                rgba(219, 39, 119, 0.7) 0%,
+                rgba(147, 51, 234, 0.6) 30%,
+                rgba(59, 130, 246, 0.5) 70%,
+                rgba(96, 165, 250, 0.4) 100%);
             position: relative;
             overflow: hidden;
             box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.15);
@@ -491,13 +621,13 @@
         }
 
         .siri-wave-left .siri-wave-path {
-            color: rgba(30, 58, 138, 0.9);
-            stroke: rgba(30, 58, 138, 0.9);
+            color: rgba(219, 39, 119, 0.9);
+            stroke: rgba(219, 39, 119, 0.9);
         }
 
         .siri-wave-right .siri-wave-path {
-            color: rgba(147, 197, 253, 0.9);
-            stroke: rgba(147, 197, 253, 0.9);
+            color: rgba(59, 130, 246, 0.9);
+            stroke: rgba(59, 130, 246, 0.9);
         }
 
         .siri-bars-left, .siri-bars-right {
@@ -510,38 +640,39 @@
         .siri-bar {
             width: 4px;
             background: linear-gradient(180deg, 
-                rgba(30, 58, 138, 0.95) 0%,
-                rgba(59, 130, 246, 0.85) 50%,
-                rgba(147, 197, 253, 0.9) 100%);
+                rgba(219, 39, 119, 0.95) 0%,
+                rgba(147, 51, 234, 0.9) 30%,
+                rgba(59, 130, 246, 0.85) 70%,
+                rgba(96, 165, 250, 0.9) 100%);
             border-radius: 2px;
             min-height: 6px;
             transition: height 0.1s ease-out, opacity 0.1s ease-out;
             box-shadow: 
-                0 0 8px rgba(30, 58, 138, 0.5),
-                0 0 16px rgba(59, 130, 246, 0.4),
-                0 0 24px rgba(147, 197, 253, 0.3);
+                0 0 8px rgba(219, 39, 119, 0.5),
+                0 0 16px rgba(147, 51, 234, 0.4),
+                0 0 24px rgba(59, 130, 246, 0.3);
             animation: bar-glow 3s ease-in-out infinite;
         }
 
         .siri-bar-left {
             background: linear-gradient(180deg, 
-                rgba(30, 58, 138, 0.95) 0%,
-                rgba(59, 130, 246, 0.85) 50%,
-                rgba(147, 197, 253, 0.9) 100%);
+                rgba(219, 39, 119, 0.95) 0%,
+                rgba(147, 51, 234, 0.9) 50%,
+                rgba(59, 130, 246, 0.85) 100%);
             box-shadow: 
-                0 0 8px rgba(30, 58, 138, 0.5),
-                0 0 16px rgba(59, 130, 246, 0.4),
-                0 0 24px rgba(147, 197, 253, 0.3);
+                0 0 8px rgba(219, 39, 119, 0.5),
+                0 0 16px rgba(147, 51, 234, 0.4),
+                0 0 24px rgba(59, 130, 246, 0.3);
         }
 
         .siri-bar-right {
             background: linear-gradient(180deg, 
-                rgba(30, 58, 138, 0.95) 0%,
-                rgba(59, 130, 246, 0.85) 50%,
-                rgba(147, 197, 253, 0.9) 100%);
+                rgba(59, 130, 246, 0.85) 0%,
+                rgba(96, 165, 250, 0.9) 50%,
+                rgba(147, 197, 253, 0.95) 100%);
             box-shadow: 
-                0 0 8px rgba(30, 58, 138, 0.5),
-                0 0 16px rgba(59, 130, 246, 0.4),
+                0 0 8px rgba(59, 130, 246, 0.5),
+                0 0 16px rgba(96, 165, 250, 0.4),
                 0 0 24px rgba(147, 197, 253, 0.3);
         }
 
@@ -674,9 +805,9 @@
             border-color: rgba(52, 199, 89, 0.2);
         }
         .intensity-normal { 
-            color: #3b82f6; 
-            background: rgba(59, 130, 246, 0.15);
-            border-color: rgba(59, 130, 246, 0.3);
+            color: #a855f7; 
+            background: rgba(147, 51, 234, 0.15);
+            border-color: rgba(147, 51, 234, 0.3);
         }
         .intensity-loud { 
             color: #ff9f0a; 
@@ -733,12 +864,17 @@
 
         .bar {
             width: 4px;
-            background: linear-gradient(180deg, rgba(30, 58, 138, 0.95) 0%, rgba(59, 130, 246, 0.85) 50%, rgba(147, 197, 253, 0.9) 100%);
+            background: linear-gradient(180deg, 
+                rgba(219, 39, 119, 0.95) 0%, 
+                rgba(147, 51, 234, 0.9) 30%,
+                rgba(59, 130, 246, 0.85) 70%,
+                rgba(96, 165, 250, 0.9) 100%);
             border-radius: 2px;
             transition: height 0.12s ease-out;
             box-shadow: 
-                0 0 6px rgba(30, 58, 138, 0.5),
-                0 0 12px rgba(59, 130, 246, 0.4);
+                0 0 6px rgba(219, 39, 119, 0.5),
+                0 0 12px rgba(147, 51, 234, 0.4),
+                0 0 18px rgba(59, 130, 246, 0.3);
         }
 
         .mic-level-meter {
@@ -754,13 +890,18 @@
 
         .mic-level-fill {
             height: 100%;
-            background: linear-gradient(90deg, rgba(30, 58, 138, 0.9) 0%, rgba(59, 130, 246, 0.85) 50%, rgba(147, 197, 253, 0.9) 100%);
+            background: linear-gradient(90deg, 
+                rgba(219, 39, 119, 0.9) 0%, 
+                rgba(147, 51, 234, 0.85) 30%,
+                rgba(59, 130, 246, 0.85) 70%,
+                rgba(96, 165, 250, 0.9) 100%);
             border-radius: 16px;
             transition: width 0.1s ease;
             width: 0%;
             box-shadow: 
-                0 0 12px rgba(30, 58, 138, 0.5),
-                0 0 20px rgba(59, 130, 246, 0.4);
+                0 0 12px rgba(219, 39, 119, 0.5),
+                0 0 20px rgba(147, 51, 234, 0.4),
+                0 0 28px rgba(59, 130, 246, 0.3);
         }
 
         .mic-level-text {
@@ -786,7 +927,7 @@
 
         .info {
             background: rgba(255, 255, 255, 0.03);
-            border-left: 2px solid rgba(59, 130, 246, 0.4);
+            border-left: 2px solid rgba(147, 51, 234, 0.4);
             padding: 20px;
             border-radius: 12px;
             font-size: 13px;
@@ -847,8 +988,8 @@
 
         .server-config input:focus {
             outline: none;
-            border-color: rgba(59, 130, 246, 0.6);
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+            border-color: rgba(147, 51, 234, 0.6);
+            box-shadow: 0 0 0 4px rgba(147, 51, 234, 0.2);
             background: rgba(255, 255, 255, 0.06);
         }
 
@@ -865,7 +1006,7 @@
             padding: 14px 16px;
             background: rgba(255, 255, 255, 0.03);
             border-radius: 10px;
-            border-left: 2px solid rgba(59, 130, 246, 0.4);
+            border-left: 2px solid rgba(147, 51, 234, 0.4);
         }
 
         .duration-label, .size-label {
@@ -888,18 +1029,18 @@
         }
 
         .button-play, .button-pause {
-            background: rgba(30, 58, 138, 0.9);
+            background: linear-gradient(135deg, rgba(147, 51, 234, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%);
             color: #ffffff;
             padding: 10px 24px;
             font-size: 14px;
             border: none;
-            box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
+            box-shadow: 0 2px 8px rgba(147, 51, 234, 0.3);
             font-weight: 500;
         }
 
         .button-play:hover, .button-pause:hover {
-            background: rgba(37, 99, 235, 1);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            background: linear-gradient(135deg, rgba(168, 85, 247, 1) 0%, rgba(96, 165, 250, 1) 100%);
+            box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
             transform: translateY(-1px);
         }
 
@@ -1053,6 +1194,176 @@
             line-height: 1.5;
         }
 
+        .threat-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .threat-item {
+            background: rgba(255, 59, 48, 0.08);
+            border: 0.5px solid rgba(255, 59, 48, 0.2);
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .threat-item-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .threat-item-type {
+            font-weight: 600;
+            color: #ff3b30;
+            font-size: 13px;
+        }
+
+        .threat-item-level {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .threat-item-level.CRITICAL {
+            background: rgba(255, 59, 48, 0.2);
+            color: #ff3b30;
+        }
+
+        .threat-item-level.HIGH {
+            background: rgba(255, 159, 10, 0.2);
+            color: #ff9f0a;
+        }
+
+        .threat-item-level.MEDIUM {
+            background: rgba(255, 214, 10, 0.2);
+            color: #ffd60a;
+        }
+
+        .threat-item-level.LOW {
+            background: rgba(147, 51, 234, 0.2);
+            color: #a855f7;
+        }
+
+        .threat-item-details {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .threat-item-time {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 11px;
+            margin-top: 4px;
+        }
+
+        .received-message-item {
+            background: rgba(255, 255, 255, 0.03);
+            border: 0.5px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .received-message-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(147, 51, 234, 0.3);
+        }
+
+        .received-message-item.new {
+            animation: messageSlideIn 0.4s ease-out;
+            border-color: rgba(59, 130, 246, 0.4);
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .received-message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .received-message-time {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 11px;
+        }
+
+        .received-message-info {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .received-message-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .message-play-button {
+            background: linear-gradient(135deg, rgba(147, 51, 234, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%);
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+
+        .message-play-button:hover {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 1) 0%, rgba(96, 165, 250, 1) 100%);
+            transform: translateY(-1px);
+        }
+
+        .message-play-button.playing {
+            background: rgba(255, 159, 10, 0.9);
+        }
+
+        #received-messages-list {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(147, 51, 234, 0.3) rgba(255, 255, 255, 0.05);
+        }
+
+        #received-messages-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #received-messages-list::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        #received-messages-list::-webkit-scrollbar-thumb {
+            background: rgba(147, 51, 234, 0.3);
+            border-radius: 3px;
+        }
+
+        #received-messages-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(147, 51, 234, 0.5);
+        }
+
 
         @media (max-width: 1200px) {
             .side-panels {
@@ -1099,6 +1410,23 @@
     </style>
 </head>
 <body>
+    <!-- Threat Alert Banner -->
+    <div class="threat-alert-banner" id="threat-alert-banner">
+        <div class="threat-alert-content">
+            <div class="threat-alert-icon">!</div>
+            <div>
+                <div class="threat-alert-text" id="threat-alert-text">Security Threat Detected!</div>
+                <div class="threat-alert-details" id="threat-alert-details">Click to view details</div>
+            </div>
+        </div>
+        <button class="threat-alert-close" id="threat-alert-close" onclick="closeThreatAlert()">×</button>
+    </div>
+
+    <!-- Threat Counter Badge -->
+    <div class="threat-counter-badge" id="threat-counter-badge">
+        <span id="threat-count">0</span> Threat(s) Detected
+    </div>
+
     <div class="container">
         <div class="header">
             <h1>Secure Voice Communication</h1>
@@ -1162,6 +1490,10 @@
                         <div class="panel-title">Server Configuration</div>
                         <div class="server-config">
                             <div class="server-config-group">
+                                <label>Your Name</label>
+                                <input type="text" id="client-name" value="" placeholder="Enter your name" maxlength="30">
+                            </div>
+                            <div class="server-config-group">
                                 <label>Server Host</label>
                                 <input type="text" id="server-host" value="localhost" placeholder="localhost">
                             </div>
@@ -1174,6 +1506,12 @@
 
                     <div class="panel-card">
                         <div class="panel-title">Controls</div>
+                        <div style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 8px; color: rgba(255, 255, 255, 0.7); font-size: 13px;">Send To:</label>
+                            <select id="recipient-select" style="width: 100%; padding: 12px 16px; border: 0.5px solid rgba(255, 255, 255, 0.1); border-radius: 10px; background: rgba(255, 255, 255, 0.04); color: rgba(255, 255, 255, 0.9); font-size: 15px; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; cursor: pointer;" disabled>
+                                <option value="">Broadcast to All</option>
+                            </select>
+                        </div>
                         <div class="controls">
                             <button id="connect-btn" class="button button-primary">Connect to Server</button>
                             <button id="record-btn" class="button button-record" disabled>Start Recording</button>
@@ -1194,7 +1532,7 @@
                                 <span id="audio-size-text">--</span>
                             </div>
                             <div id="encryption-status" style="display: none; padding: 12px 16px; background: rgba(59, 130, 246, 0.1); border-radius: 10px; border-left: 2px solid rgba(59, 130, 246, 0.4); margin: 12px 0; font-size: 13px; color: rgba(255, 255, 255, 0.9);">
-                                <span style="font-weight: 600;">🔒 Encrypted</span>
+                                <span style="font-weight: 600;">Encrypted</span>
                             </div>
                             <div class="audio-preview-controls">
                                 <button id="play-audio-btn" class="button button-play">Play</button>
@@ -1210,9 +1548,9 @@
                         <div class="accordion" id="processing-accordion">
                             <div class="accordion-item" id="processing-audio-item">
                                 <div class="accordion-header" onclick="toggleAccordion('processing-audio-item')">
-                                    <div class="accordion-icon">📊</div>
+                                    <div class="accordion-icon"></div>
                                     <div class="accordion-title">Processing Audio</div>
-                                    <div class="accordion-chevron">▶</div>
+                                    <div class="accordion-chevron">&gt;</div>
                                 </div>
                                 <div class="accordion-content">
                                     <div class="accordion-body">
@@ -1226,9 +1564,9 @@
 
                             <div class="accordion-item" id="processing-quality-item">
                                 <div class="accordion-header" onclick="toggleAccordion('processing-quality-item')">
-                                    <div class="accordion-icon">📈</div>
+                                    <div class="accordion-icon"></div>
                                     <div class="accordion-title">Quality Metrics</div>
-                                    <div class="accordion-chevron">▶</div>
+                                    <div class="accordion-chevron">&gt;</div>
                                 </div>
                                 <div class="accordion-content">
                                     <div class="accordion-body">
@@ -1246,9 +1584,9 @@
 
                             <div class="accordion-item" id="processing-compression-item">
                                 <div class="accordion-header" onclick="toggleAccordion('processing-compression-item')">
-                                    <div class="accordion-icon">🗜️</div>
+                                    <div class="accordion-icon"></div>
                                     <div class="accordion-title">Compression</div>
-                                    <div class="accordion-chevron">▶</div>
+                                    <div class="accordion-chevron">&gt;</div>
                                 </div>
                                 <div class="accordion-content">
                                     <div class="accordion-body">
@@ -1262,9 +1600,9 @@
 
                             <div class="accordion-item" id="processing-security-item">
                                 <div class="accordion-header" onclick="toggleAccordion('processing-security-item')">
-                                    <div class="accordion-icon">🔒</div>
+                                    <div class="accordion-icon"></div>
                                     <div class="accordion-title">Security</div>
-                                    <div class="accordion-chevron">▶</div>
+                                    <div class="accordion-chevron">&gt;</div>
                                 </div>
                                 <div class="accordion-content">
                                     <div class="accordion-body">
@@ -1282,9 +1620,9 @@
 
                             <div class="accordion-item" id="processing-sent-item">
                                 <div class="accordion-header" onclick="toggleAccordion('processing-sent-item')">
-                                    <div class="accordion-icon">📤</div>
+                                    <div class="accordion-icon"></div>
                                     <div class="accordion-title">Transmission</div>
-                                    <div class="accordion-chevron">▶</div>
+                                    <div class="accordion-chevron">&gt;</div>
                                 </div>
                                 <div class="accordion-content">
                                     <div class="accordion-body">
@@ -1299,18 +1637,21 @@
                     </div>
 
                     <div class="panel-card" id="intrusion-alert-panel" style="display: none;">
-                        <div class="panel-title">Security Alerts</div>
+                        <div class="panel-title">Security Alerts <span id="threat-count-badge" style="background: rgba(255, 59, 48, 0.2); color: #ff3b30; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px;">0</span></div>
                         <div class="accordion" id="intrusion-accordion">
                             <div class="accordion-item intrusion-alert-item active" id="intrusion-alert-item">
                                 <div class="accordion-header" onclick="toggleAccordion('intrusion-alert-item')">
-                                    <div class="accordion-icon">⚠️</div>
-                                    <div class="accordion-title">Server Compromised</div>
-                                    <div class="accordion-chevron">▼</div>
+                                    <div class="accordion-icon">!</div>
+                                    <div class="accordion-title">Threat Detected</div>
+                                    <div class="accordion-chevron">v</div>
                                 </div>
                                 <div class="accordion-content">
                                     <div class="accordion-body">
                                         <div class="intrusion-message" id="intrusion-message-text">
-                                            Server compromised - Security intrusion detected
+                                            Security threat detected
+                                        </div>
+                                        <div class="threat-list" id="threat-list">
+                                            <!-- Threat items will be added here -->
                                         </div>
                                     </div>
                                 </div>
@@ -1320,6 +1661,41 @@
                 </div>
 
                 <div class="right-panel">
+                    <div class="panel-card">
+                        <div class="panel-title">Connection Status</div>
+                        <div class="status" id="connection-status">
+                            <span class="status-indicator disconnected"></span>
+                            <span id="connection-status-text">Not connected</span>
+                        </div>
+                        <div style="margin-top: 12px; padding: 12px; background: rgba(255, 255, 255, 0.03); border-radius: 10px; font-size: 13px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span style="color: rgba(255, 255, 255, 0.6);">Active Clients:</span>
+                                <span id="active-clients-count" style="color: rgba(255, 255, 255, 0.9); font-weight: 600; transition: all 0.3s ease;">0</span>
+                            </div>
+                            <div id="connected-clients-list" style="margin-top: 8px; padding-top: 8px; border-top: 0.5px solid rgba(255, 255, 255, 0.1); font-size: 11px; color: rgba(255, 255, 255, 0.5); display: none;">
+                                <div style="margin-bottom: 4px; color: rgba(255, 255, 255, 0.6);">Connected:</div>
+                                <div id="clients-names-list"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-top: 12px;">
+                                <span style="color: rgba(255, 255, 255, 0.6);">Messages Sent:</span>
+                                <span id="messages-sent-count" style="color: rgba(255, 255, 255, 0.9); font-weight: 600;">0</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                                <span style="color: rgba(255, 255, 255, 0.6);">Messages Received:</span>
+                                <span id="messages-received-count" style="color: rgba(255, 255, 255, 0.9); font-weight: 600;">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-card" id="received-messages-panel">
+                        <div class="panel-title">Received Messages</div>
+                        <div id="received-messages-list" style="max-height: 400px; overflow-y: auto;">
+                            <div style="text-align: center; padding: 40px 20px; color: rgba(255, 255, 255, 0.5); font-size: 13px;">
+                                No messages received yet
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="panel-card">
                         <div class="panel-title">Audio Input</div>
                         <div class="audio-visualizer" id="audio-visualizer" style="display: none;">
@@ -1709,6 +2085,9 @@
             if ('Notification' in window && Notification.permission === 'default') {
                 Notification.requestPermission();
             }
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
         });
 
         socket.on('connected', (data) => {
@@ -1718,9 +2097,17 @@
         socket.on('server_connected', (data) => {
             console.log('Connected to voice server:', data);
             isConnected = true;
-            updateStatus('Connected to voice server', 'connected');
+            const name = data.client_name || clientName || 'Unknown';
+            updateStatus(`Connected to voice server as "${name}"`, 'connected');
             document.getElementById('connect-btn').textContent = 'Disconnect';
             document.getElementById('record-btn').disabled = false;
+            
+            // Disable name input when connected
+            const nameInput = document.getElementById('client-name');
+            if (nameInput) {
+                nameInput.disabled = true;
+                nameInput.style.opacity = '0.6';
+            }
         });
 
         socket.on('server_disconnected', (data) => {
@@ -1731,6 +2118,13 @@
             document.getElementById('record-btn').disabled = true;
             document.getElementById('send-btn').disabled = true;
             hasRecordedAudio = false;
+            
+            // Re-enable name input when disconnected
+            const nameInput = document.getElementById('client-name');
+            if (nameInput) {
+                nameInput.disabled = false;
+                nameInput.style.opacity = '1';
+            }
         });
 
         socket.on('server_error', (data) => {
@@ -1738,18 +2132,38 @@
             updateStatus('Connection error: ' + data.message, 'disconnected');
         });
 
+        // Track received messages and sent messages
+        let receivedMessages = [];
+        let messagesSentCount = 0;
+        let messagesReceivedCount = 0;
+        let activeClientsCount = 0;
+
         socket.on('audio_received', (data) => {
-            console.log('Audio received');
+            console.log('Audio received:', data);
             if (data.verified) {
+                messagesReceivedCount++;
+                updateMessagesReceivedCount();
+                
                 // Format packet information
                 const packetNum = data.packet_number || '?';
                 const encryptedSize = data.encrypted_size || 0;
                 const decryptedSize = data.decrypted_size || 0;
                 const packetInfo = `Received audio packet #${packetNum} (${encryptedSize.toLocaleString()} bytes encrypted, ${decryptedSize.toLocaleString()} bytes decrypted)`;
                 
-                updateStatus(packetInfo, 'connected');
-                // Play received audio
-                playAudio(data.audio);
+                updateStatus(`Message received from another client`, 'connected');
+                
+                // Add to received messages list
+                addReceivedMessage({
+                    audio: data.audio,
+                    packetNumber: packetNum,
+                    encryptedSize: encryptedSize,
+                    decryptedSize: decryptedSize,
+                    timestamp: new Date(),
+                    senderName: data.sender_name || 'Another Client'
+                });
+                
+                // Auto-play received audio (optional - you can remove this if you want manual playback)
+                // playAudio(data.audio);
             } else {
                 updateStatus('Audio received but integrity check failed', 'disconnected');
             }
@@ -1758,6 +2172,9 @@
         socket.on('audio_sent', (data) => {
             console.log('Audio sent:', data);
             if (data.status === 'ok') {
+                messagesSentCount++;
+                updateMessagesSentCount();
+                
                 // Update quality metrics display with actual values from server
                 const snr = (data.snr_db !== null && data.snr_db !== undefined) ? Number(data.snr_db) : null;
                 const bitrate = (data.bitrate !== null && data.bitrate !== undefined) ? Number(data.bitrate) : null;
@@ -1873,36 +2290,153 @@
             });
         }
 
+        // Threat counter
+        let threatCount = 0;
+        const threatHistory = [];
+
         // Show intrusion alert
         function showIntrusionAlert(alertData) {
-            const panel = document.getElementById('intrusion-alert-panel');
-            if (!panel) return;
+            console.log('Security alert received:', alertData);
             
-            // Update intrusion message
-            const messageText = document.getElementById('intrusion-message-text');
-            if (messageText) {
-                const threatType = alertData.threat_type ? alertData.threat_type.replace(/_/g, ' ') : 'Security Threat';
-                const whatTried = alertData.details?.what_attacker_tried || alertData.message || 'Unknown attack';
-                messageText.textContent = `Server compromised - ${threatType}: ${whatTried}`;
+            // Increment threat counter
+            threatCount++;
+            threatHistory.push({
+                ...alertData,
+                timestamp: new Date()
+            });
+            
+            // Update threat counter badge
+            const threatBadge = document.getElementById('threat-counter-badge');
+            const threatCountEl = document.getElementById('threat-count');
+            if (threatBadge && threatCountEl) {
+                threatCountEl.textContent = threatCount;
+                threatBadge.classList.add('show');
             }
             
-            // Show the panel and expand the accordion
-            panel.style.display = 'block';
-            const intrusionItem = document.getElementById('intrusion-alert-item');
-            if (intrusionItem) {
-                intrusionItem.classList.add('active');
+            // Get threat details
+            const threatType = alertData.threat_type ? alertData.threat_type.replace(/_/g, ' ') : 'Security Threat';
+            const threatLevel = alertData.level || 'HIGH';
+            const whatTried = alertData.details?.what_attacker_tried || alertData.message || 'Unknown attack';
+            const sourceIP = alertData.source_ip || 'Unknown';
+            
+            // Show prominent threat alert banner
+            const threatBanner = document.getElementById('threat-alert-banner');
+            const threatText = document.getElementById('threat-alert-text');
+            const threatDetails = document.getElementById('threat-alert-details');
+            
+            if (threatBanner && threatText && threatDetails) {
+                threatText.textContent = `${threatLevel} THREAT: ${threatType}`;
+                threatDetails.textContent = `${whatTried} | Source: ${sourceIP}`;
+                threatBanner.classList.add('show');
+                
+                // Make banner clickable to scroll to details
+                threatBanner.onclick = () => {
+                    const panel = document.getElementById('intrusion-alert-panel');
+                    if (panel) {
+                        panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                };
+            }
+            
+            // Update intrusion alert panel
+            const panel = document.getElementById('intrusion-alert-panel');
+            if (panel) {
+                panel.style.display = 'block';
+                
+                // Update threat count badge in panel
+                const threatCountBadge = document.getElementById('threat-count-badge');
+                if (threatCountBadge) {
+                    threatCountBadge.textContent = threatCount;
+                }
+                
+                // Update intrusion message
+                const messageText = document.getElementById('intrusion-message-text');
+                if (messageText) {
+                    messageText.textContent = `${threatCount} threat(s) detected - Latest: ${threatType}`;
+                }
+                
+                // Update threat list
+                const threatList = document.getElementById('threat-list');
+                if (threatList) {
+                    threatList.innerHTML = '';
+                    // Show last 10 threats (most recent first)
+                    const recentThreats = threatHistory.slice(-10).reverse();
+                    recentThreats.forEach((threat, index) => {
+                        const threatItem = document.createElement('div');
+                        threatItem.className = 'threat-item';
+                        
+                        const threatType = threat.threat_type ? threat.threat_type.replace(/_/g, ' ') : 'Security Threat';
+                        const threatLevel = threat.level || 'HIGH';
+                        const whatTried = threat.details?.what_attacker_tried || threat.message || 'Unknown attack';
+                        const sourceIP = threat.source_ip || 'Unknown';
+                        const timestamp = threat.timestamp ? new Date(threat.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+                        
+                        threatItem.innerHTML = `
+                            <div class="threat-item-header">
+                                <div class="threat-item-type">${threatType}</div>
+                                <div class="threat-item-level ${threatLevel}">${threatLevel}</div>
+                            </div>
+                            <div class="threat-item-details">${whatTried}</div>
+                            <div class="threat-item-time">Source: ${sourceIP} | ${timestamp}</div>
+                        `;
+                        
+                        threatList.appendChild(threatItem);
+                    });
+                }
+                
+                // Expand the accordion
+                const intrusionItem = document.getElementById('intrusion-alert-item');
+                if (intrusionItem) {
+                    intrusionItem.classList.add('active');
+                }
             }
             
             // Scroll to intrusion alert
-            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            if (panel) {
+                setTimeout(() => {
+                    panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+            }
             
             // Play alert sound
             try {
                 const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZijcIGWi77+efTRAMUKfj8LZjHAY4kdfyzHksBSR3x/DdkEAKFF606euoVRQKRp/g8r5sIQUqgc7y2Yo3CBlou+/nn00QDFCn4/C2YxwGOJHX8sx5LAUkd8fw3ZBAC');
-                audio.volume = 0.5;
+                audio.volume = 0.7;
                 audio.play().catch(() => {});
             } catch (e) {
                 // Ignore audio errors
+            }
+            
+            // Show browser notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                    new Notification(`${threatLevel} Security Threat Detected`, {
+                        body: `${threatType}: ${whatTried}`,
+                        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="%23ff3b30"/><text x="50" y="70" font-size="60" text-anchor="middle" fill="white">!</text></svg>',
+                        tag: 'security-threat',
+                        requireInteraction: threatLevel === 'CRITICAL'
+                    });
+                } catch (e) {
+                    console.log('Notification error:', e);
+                }
+            } else if ('Notification' in window && Notification.permission === 'default') {
+                // Request permission
+                Notification.requestPermission().then(permission => {
+                    if (permission === 'granted') {
+                        showIntrusionAlert(alertData); // Retry showing notification
+                    }
+                });
+            }
+            
+            // Update status bar
+            updateStatus(`${threatLevel} THREAT: ${threatType} detected!`, 'disconnected');
+        }
+
+        // Close threat alert banner
+        function closeThreatAlert() {
+            const threatBanner = document.getElementById('threat-alert-banner');
+            if (threatBanner) {
+                threatBanner.classList.remove('show');
             }
         }
 
@@ -1916,6 +2450,9 @@
             updateStatus('Disconnected', 'disconnected');
         });
 
+        // Store client name
+        let clientName = '';
+
         // UI event handlers
         document.getElementById('connect-btn').addEventListener('click', () => {
             if (isConnected) {
@@ -1923,7 +2460,23 @@
             } else {
                 const host = document.getElementById('server-host').value;
                 const port = parseInt(document.getElementById('server-port').value);
-                socket.emit('connect_to_server', { host, port });
+                const nameInput = document.getElementById('client-name');
+                const name = nameInput ? nameInput.value.trim() : '';
+                
+                if (!name) {
+                    updateStatus('Please enter your name before connecting', 'disconnected');
+                    if (nameInput) {
+                        nameInput.focus();
+                        nameInput.style.borderColor = 'rgba(255, 59, 48, 0.5)';
+                        setTimeout(() => {
+                            if (nameInput) nameInput.style.borderColor = '';
+                        }, 2000);
+                    }
+                    return;
+                }
+                
+                clientName = name;
+                socket.emit('connect_to_server', { host, port, client_name: clientName });
             }
         });
 
@@ -2310,9 +2863,19 @@
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64Audio = reader.result.split(',')[1];
+                const recipientSelect = document.getElementById('recipient-select');
+                const recipient = recipientSelect && recipientSelect.value ? recipientSelect.value : null;
+                
+                if (recipient) {
+                    updateStatus(`Sending audio to ${recipient}...`, 'connected');
+                } else {
+                    updateStatus('Broadcasting audio to all clients...', 'connected');
+                }
+                
                 socket.emit('send_audio', { 
                     audio: base64Audio,
-                    encrypted: isAudioEncrypted
+                    encrypted: isAudioEncrypted,
+                    recipient: recipient  // null means broadcast to all
                 });
                 
                 // Reset after sending
@@ -2377,11 +2940,334 @@
             console.log('Security stats:', stats);
         });
 
-        // Handle security alerts - show "Server Compromised" message
+        // Handle security alerts - show prominent threat alerts
         socket.on('security_alert', (alertData) => {
+            console.log('=== SECURITY ALERT RECEIVED ===');
             console.log('Security alert received:', alertData);
+            console.log('Alert data type:', typeof alertData);
+            console.log('Alert data keys:', alertData ? Object.keys(alertData) : 'null');
+            
+            if (!alertData) {
+                console.error('Received null or undefined alert data');
+                return;
+            }
+            
+            // Ensure alertData is an object
+            if (typeof alertData !== 'object') {
+                console.error('Alert data is not an object:', alertData);
+                return;
+            }
+            
             showIntrusionAlert(alertData);
-            updateStatus('Server compromised - Security intrusion detected!', 'disconnected');
+        });
+        
+        // Also listen for security_alerts (plural) in case alerts are sent that way
+        socket.on('security_alerts', (data) => {
+            console.log('Security alerts (plural) received:', data);
+            if (data && data.alerts && Array.isArray(data.alerts)) {
+                data.alerts.forEach(alert => {
+                    showIntrusionAlert(alert);
+                });
+            }
+        });
+        
+        // Test function to verify alerts are working (can be called from browser console)
+        window.testSecurityAlert = function() {
+            console.log('Testing security alert...');
+            const testAlert = {
+                threat_type: 'EAVESDROPPING',
+                level: 'HIGH',
+                message: 'Test: Failed decryption attempt detected',
+                source_ip: '127.0.0.1',
+                details: {
+                    what_attacker_tried: 'Test: Decrypt encrypted audio data without proper AES-256-GCM key',
+                    failure_count: 1,
+                    error: 'Test error message'
+                },
+                timestamp: new Date().toISOString()
+            };
+            showIntrusionAlert(testAlert);
+        };
+        
+        // Request recent alerts on connection
+        socket.on('connect', () => {
+            console.log('Socket connected, requesting recent security alerts...');
+            socket.emit('get_security_alerts');
+        });
+
+        // Functions for received messages
+        function addReceivedMessage(messageData) {
+            const messagesList = document.getElementById('received-messages-list');
+            if (!messagesList) return;
+
+            // Remove "no messages" placeholder
+            const placeholder = messagesList.querySelector('div[style*="text-align: center"]');
+            if (placeholder) {
+                placeholder.remove();
+            }
+
+            // Create message item
+            const messageItem = document.createElement('div');
+            messageItem.className = 'received-message-item new';
+            const timeStr = messageData.timestamp.toLocaleTimeString();
+            const sizeKB = (messageData.decryptedSize / 1024).toFixed(2);
+            const messageId = 'msg-' + Date.now();
+            // Escape base64 audio for HTML
+            const safeAudio = messageData.audio.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            
+            const senderName = messageData.senderName || 'Another Client';
+            messageItem.innerHTML = `
+                <div class="received-message-header">
+                    <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px;">
+                        Message from ${senderName}
+                    </div>
+                    <div class="received-message-time">${timeStr}</div>
+                </div>
+                <div class="received-message-info">
+                    Packet #${messageData.packetNumber} | ${sizeKB} KB | ${messageData.encryptedSize.toLocaleString()} bytes encrypted
+                </div>
+                <div class="received-message-controls">
+                    <button class="message-play-button" id="${messageId}-play" onclick="playReceivedMessage('${messageId}', '${safeAudio}')">
+                        Play
+                    </button>
+                </div>
+                <audio id="${messageId}-audio" style="display: none;"></audio>
+            `;
+
+            messagesList.insertBefore(messageItem, messagesList.firstChild);
+            
+            // Remove "new" class after animation
+            setTimeout(() => {
+                messageItem.classList.remove('new');
+            }, 500);
+
+            // Keep only last 20 messages
+            while (messagesList.children.length > 20) {
+                messagesList.removeChild(messagesList.lastChild);
+            }
+
+            // Store message data
+            receivedMessages.unshift(messageData);
+            if (receivedMessages.length > 20) {
+                receivedMessages = receivedMessages.slice(0, 20);
+            }
+
+            // Show notification
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('New Message Received', {
+                    body: `Audio message from another client (${sizeKB} KB)`,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="%233b82f6"/><text x="50" y="70" font-size="60" text-anchor="middle" fill="white">!</text></svg>',
+                    tag: 'message-received'
+                });
+            }
+        }
+
+        function playReceivedMessage(messageId, base64Audio) {
+            const button = document.getElementById(messageId + '-play');
+            const audio = document.getElementById(messageId + '-audio');
+            
+            if (!button || !audio) return;
+
+            if (button.classList.contains('playing')) {
+                // Stop playing
+                audio.pause();
+                audio.currentTime = 0;
+                button.textContent = 'Play';
+                button.classList.remove('playing');
+                return;
+            }
+
+            // Set audio source
+            audio.src = 'data:audio/wav;base64,' + base64Audio;
+            button.textContent = 'Playing...';
+            button.classList.add('playing');
+
+            audio.onended = () => {
+                button.textContent = 'Play';
+                button.classList.remove('playing');
+            };
+
+            audio.onerror = () => {
+                button.textContent = 'Error';
+                button.classList.remove('playing');
+            };
+
+            audio.play().catch(err => {
+                console.error('Error playing audio:', err);
+                button.textContent = 'Play';
+                button.classList.remove('playing');
+            });
+        }
+
+        function updateMessagesSentCount() {
+            const countEl = document.getElementById('messages-sent-count');
+            if (countEl) {
+                countEl.textContent = messagesSentCount;
+            }
+        }
+
+        function updateMessagesReceivedCount() {
+            const countEl = document.getElementById('messages-received-count');
+            if (countEl) {
+                countEl.textContent = messagesReceivedCount;
+            }
+        }
+
+        function updateActiveClientsCount(count, clientList = []) {
+            console.log('updateActiveClientsCount called with:', count, clientList);
+            const oldCount = activeClientsCount;
+            activeClientsCount = count;
+            const countEl = document.getElementById('active-clients-count');
+            if (countEl) {
+                console.log('Updating active clients count element:', countEl, 'to:', count);
+                countEl.textContent = count;
+                
+                // Add animation when count changes
+                if (oldCount !== count) {
+                    console.log(`Client count changed from ${oldCount} to ${count}`);
+                    countEl.style.transform = 'scale(1.2)';
+                    countEl.style.color = 'rgba(59, 130, 246, 1)';
+                    setTimeout(() => {
+                        countEl.style.transform = 'scale(1)';
+                        countEl.style.color = 'rgba(255, 255, 255, 0.9)';
+                    }, 500);
+                }
+            } else {
+                console.error('active-clients-count element not found!');
+            }
+            
+            // Update clients list
+            const clientsListEl = document.getElementById('connected-clients-list');
+            const clientsNamesEl = document.getElementById('clients-names-list');
+            if (clientsListEl && clientsNamesEl) {
+                if (clientList.length > 0) {
+                    clientsListEl.style.display = 'block';
+                    clientsNamesEl.innerHTML = clientList.map(c => 
+                        `<div style="margin-top: 4px; padding-left: 8px;">• ${c.name}</div>`
+                    ).join('');
+                } else {
+                    clientsListEl.style.display = 'none';
+                }
+            }
+            
+            // Show notification if count changed and someone joined
+            if (count > oldCount && oldCount > 0 && clientList.length > 0) {
+                const newClients = clientList.filter(c => c.name !== clientName);
+                if (newClients.length > 0) {
+                    const names = newClients.map(c => c.name).join(', ');
+                    updateStatus(`Client joined: ${names}`, 'connected');
+                    
+                    // Browser notification
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification('Client Joined', {
+                            body: `${names} joined the server`,
+                            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="%2334c759"/><text x="50" y="70" font-size="40" text-anchor="middle" fill="white">+</text></svg>',
+                            tag: 'client-joined'
+                        });
+                    }
+                }
+            }
+            
+            // Show notification if someone left
+            if (count < oldCount && oldCount > 1) {
+                updateStatus(`Client disconnected. ${count} client(s) remaining`, 'connected');
+            }
+        }
+        
+        // Listen for real-time client count updates
+        socket.on('client_count_update', (data) => {
+            console.log('=== CLIENT COUNT UPDATE RECEIVED ===');
+            console.log('Data:', data);
+            console.log('Count:', data.count);
+            console.log('Clients:', data.clients);
+            
+            if (data && typeof data.count === 'number') {
+                updateActiveClientsCount(data.count, data.clients || []);
+                updateRecipientList(data.clients || []);
+            } else {
+                console.error('Invalid client count update data:', data);
+            }
+        });
+        
+        // Update recipient dropdown with available clients
+        function updateRecipientList(clientList) {
+            const recipientSelect = document.getElementById('recipient-select');
+            if (!recipientSelect) return;
+            
+            // Store current selection
+            const currentSelection = recipientSelect.value;
+            
+            // Clear existing options except "Broadcast to All"
+            recipientSelect.innerHTML = '<option value="">Broadcast to All</option>';
+            
+            // Add other clients (exclude self)
+            clientList.forEach(client => {
+                if (client.name !== clientName) {
+                    const option = document.createElement('option');
+                    option.value = client.name;
+                    option.textContent = client.name;
+                    recipientSelect.appendChild(option);
+                }
+            });
+            
+            // Restore selection if it still exists
+            if (currentSelection && Array.from(recipientSelect.options).some(opt => opt.value === currentSelection)) {
+                recipientSelect.value = currentSelection;
+            }
+            
+            // Enable/disable based on connection
+            recipientSelect.disabled = !isConnected || clientList.length <= 1;
+        }
+        
+        // Request client count when socket connects (if already connected to server)
+        socket.on('connect', () => {
+            console.log('Socket connected, will request client count if server is connected...');
+            // Only request if we're already connected to the voice server
+            if (isConnected) {
+                setTimeout(() => {
+                    console.log('Requesting client count after socket reconnect...');
+                    socket.emit('get_client_count');
+                }, 500);
+            }
+        });
+
+        // Update connection status display
+        socket.on('server_connected', (data) => {
+            const statusEl = document.getElementById('connection-status');
+            const statusText = document.getElementById('connection-status-text');
+            const indicator = statusEl ? statusEl.querySelector('.status-indicator') : null;
+            
+            if (statusEl && statusText && indicator) {
+                statusEl.className = 'status connected';
+                indicator.className = 'status-indicator connected';
+                statusText.textContent = 'Connected to server';
+            }
+            
+            // Update active clients count (we'll estimate based on connection)
+            updateActiveClientsCount(1); // At least this client is connected
+        });
+
+        socket.on('server_disconnected', (data) => {
+            const statusEl = document.getElementById('connection-status');
+            const statusText = document.getElementById('connection-status-text');
+            const indicator = statusEl ? statusEl.querySelector('.status-indicator') : null;
+            
+            if (statusEl && statusText && indicator) {
+                statusEl.className = 'status disconnected';
+                indicator.className = 'status-indicator disconnected';
+                statusText.textContent = 'Not connected';
+            }
+            
+            updateActiveClientsCount(0);
+        });
+
+        // Handle audio sent confirmation
+        socket.on('audio_sent_to_server', (data) => {
+            if (data.status === 'sent') {
+                updateStatus(`Audio sent! Broadcasting to ${data.recipients || 'all clients'}`, 'connected');
+            } else {
+                updateStatus('Failed to send audio: ' + (data.message || 'Unknown error'), 'disconnected');
+            }
         });
 
         // Initialize

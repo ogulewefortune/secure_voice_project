@@ -35,9 +35,17 @@ ids = get_ids()
 
 def handle_security_alert(alert):
     """Handle security alert and broadcast to all web clients."""
-    alert_data = alert.to_dict()
-    socketio.emit('security_alert', alert_data, broadcast=True)
-    log(f"SECURITY ALERT: {alert}", "ALERT")
+    try:
+        alert_data = alert.to_dict()
+        log(f"SECURITY ALERT: {alert}", "ALERT")
+        log(f"Broadcasting security alert to web clients: {alert_data}", "ALERT")
+        # Emit to all connected web clients
+        socketio.emit('security_alert', alert_data, broadcast=True, namespace='/')
+        log(f"Security alert emitted successfully", "ALERT")
+    except Exception as e:
+        log(f"Error handling security alert: {e}", "ERROR")
+        import traceback
+        traceback.print_exc()
 
 # Register alert callback
 ids.register_alert_callback(handle_security_alert)
@@ -45,10 +53,11 @@ ids.register_alert_callback(handle_security_alert)
 class WebVoiceClient:
     """Web client that connects to the voice server."""
     
-    def __init__(self, socket_id, voice_server_host=DEFAULT_HOST, voice_server_port=DEFAULT_PORT):
+    def __init__(self, socket_id, voice_server_host=DEFAULT_HOST, voice_server_port=DEFAULT_PORT, client_name=None):
         self.socket_id = socket_id
         self.voice_server_host = voice_server_host
         self.voice_server_port = voice_server_port
+        self.client_name = client_name or f"Client_{socket_id[:8]}"
         self.socket = None
         self.aes_key = None
         self.private_key = None
@@ -87,6 +96,14 @@ class WebVoiceClient:
             shared_secret = derive_shared_secret(self.private_key, server_public_key)
             self.aes_key, _ = derive_aes_key(shared_secret, salt)
             
+            # Send client name to server
+            msg_type, name_request = receive_message(self.socket)
+            if msg_type == 'N':
+                # Server is requesting our name
+                name_bytes = self.client_name.encode('utf-8')
+                send_message(self.socket, 'N', name_bytes)
+                log(f"[Web Client {self.socket_id[:8]}] Sent client name to server: {self.client_name}", "INFO")
+            
             self.connected = True
             self.running = True
             self.audio_packet_count = 0  # Reset packet counter on new connection
@@ -101,8 +118,14 @@ class WebVoiceClient:
             print(f"Error during key exchange: {e}")
             return False
     
-    def send_audio(self, audio_data_base64, audio_format='webm'):
-        """Send audio data to the voice server with compression and integrity checks."""
+    def send_audio(self, audio_data_base64, audio_format='webm', recipient_name=None):
+        """Send audio data to the voice server with compression and integrity checks.
+        
+        Args:
+            audio_data_base64: Base64 encoded audio data
+            audio_format: Audio format (default: 'webm')
+            recipient_name: Optional recipient name for targeted sending. If None, broadcasts to all.
+        """
         if not self.connected or not self.aes_key:
             return False, None, None, None
         
@@ -157,12 +180,42 @@ class WebVoiceClient:
             encrypted_size = len(encrypted_audio)
             log(f"[Web Client {self.socket_id[:8]}] Encrypted: {compressed_size} → {encrypted_size} bytes (AES-256-GCM)", "SECURITY")
             
-            # Send to server
-            success = send_message(self.socket, 'A', encrypted_audio)
-            if success:
-                log(f"[Web Client {self.socket_id[:8]}] Sent audio packet to server ({encrypted_size} bytes)", "SEND")
+            # Send to server (targeted or broadcast)
+            if recipient_name:
+                # Targeted sending: prepend recipient name
+                recipient_bytes = recipient_name.encode('utf-8')
+                recipient_len = len(recipient_bytes).to_bytes(2, 'big')
+                targeted_message = recipient_len + recipient_bytes + encrypted_audio
+                success = send_message(self.socket, 'T', targeted_message)
+                if success:
+                    log(f"[Web Client {self.socket_id[:8]}] Sending targeted audio to: {recipient_name}", "SEND")
+                    socketio.emit('audio_sent_to_server', {
+                        'status': 'sent',
+                        'encrypted_size': encrypted_size,
+                        'message': f'Audio sent to {recipient_name}'
+                    }, room=self.socket_id)
+                else:
+                    log(f"[Web Client {self.socket_id[:8]}] Failed to send targeted audio", "ERROR")
+                    socketio.emit('audio_sent_to_server', {
+                        'status': 'failed',
+                        'message': 'Failed to send audio to server'
+                    }, room=self.socket_id)
             else:
-                log(f"[Web Client {self.socket_id[:8]}] Failed to send audio", "ERROR")
+                # Broadcast to all
+                success = send_message(self.socket, 'A', encrypted_audio)
+                if success:
+                    log(f"[Web Client {self.socket_id[:8]}] Broadcasting audio to all clients", "SEND")
+                    socketio.emit('audio_sent_to_server', {
+                        'status': 'sent',
+                        'encrypted_size': encrypted_size,
+                        'message': 'Audio broadcasted to all connected clients'
+                    }, room=self.socket_id)
+                else:
+                    log(f"[Web Client {self.socket_id[:8]}] Failed to send audio", "ERROR")
+                    socketio.emit('audio_sent_to_server', {
+                        'status': 'failed',
+                        'message': 'Failed to send audio to server'
+                    }, room=self.socket_id)
             
             # Return success status and processing details
             processing_details = {
@@ -238,13 +291,15 @@ class WebVoiceClient:
                         audio_base64 = base64.b64encode(audio_data).decode('utf-8')
                         
                         # Send to web client via SocketIO with packet information
+                        # Note: We'll try to get sender name from voice server if possible
                         socketio.emit('audio_received', {
                             'audio': audio_base64,
                             'format': 'pcm',
                             'verified': True,
                             'packet_number': self.audio_packet_count,
                             'encrypted_size': encrypted_size,
-                            'decrypted_size': decrypted_size
+                            'decrypted_size': decrypted_size,
+                            'sender_name': 'Another Client'  # Will be updated when we track sender names
                         }, room=self.socket_id)
                         log(f"[Web Client {self.socket_id[:8]}] Forwarded audio to web client", "SEND")
                     except Exception as e:
@@ -287,9 +342,30 @@ def handle_connect():
 def handle_disconnect():
     """Handle web client disconnection."""
     log(f"Web client disconnected: {request.sid[:8]}...", "DISCONNECT")
+    was_connected = request.sid in web_clients and web_clients[request.sid].connected
     if request.sid in web_clients:
         web_clients[request.sid].disconnect()
         del web_clients[request.sid]
+        # Broadcast client count update if they were connected to voice server
+        if was_connected:
+            broadcast_client_count_update()
+
+
+def broadcast_client_count_update():
+    """Broadcast updated client count to all web clients."""
+    # Count clients connected to voice server
+    connected_count = len([c for c in web_clients.values() if c.connected])
+    client_list = [{'name': c.client_name, 'id': c.socket_id[:8]} for c in web_clients.values() if c.connected]
+    
+    log(f"Broadcasting client count update: {connected_count} clients connected. Clients: {[c['name'] for c in client_list]}", "INFO")
+    
+    # Broadcast to all web clients
+    socketio.emit('client_count_update', {
+        'count': connected_count,
+        'clients': client_list
+    }, broadcast=True, namespace='/')
+    
+    log(f"Client count update event emitted to all clients", "INFO")
 
 
 @socketio.on('connect_to_server')
@@ -298,17 +374,21 @@ def handle_connect_to_server(data):
     try:
         host = data.get('host', DEFAULT_HOST)
         port = data.get('port', DEFAULT_PORT)
+        client_name = data.get('client_name', f"Client_{request.sid[:8]}")
         
-        log(f"[{request.sid[:8]}] Connecting to voice server at {host}:{port}...", "CONNECT")
-        client = WebVoiceClient(request.sid, host, port)
+        log(f"[{request.sid[:8]}] Connecting to voice server at {host}:{port} as '{client_name}'...", "CONNECT")
+        client = WebVoiceClient(request.sid, host, port, client_name=client_name)
         if client.connect():
             web_clients[request.sid] = client
-            log(f"[{request.sid[:8]}] Successfully connected to voice server", "CONNECT")
+            log(f"[{request.sid[:8]}] Successfully connected to voice server as '{client_name}'", "CONNECT")
             emit('server_connected', {
                 'status': 'connected',
                 'host': host,
-                'port': port
+                'port': port,
+                'client_name': client_name
             })
+            # Broadcast client count update to all clients
+            broadcast_client_count_update()
         else:
             log(f"[{request.sid[:8]}] Failed to connect to voice server", "ERROR")
             emit('server_error', {'message': 'Failed to connect to voice server'})
@@ -322,8 +402,9 @@ def handle_send_audio(data):
     if request.sid in web_clients:
         client = web_clients[request.sid]
         audio_data = data.get('audio')
+        recipient_name = data.get('recipient')  # Optional recipient name
         if audio_data:
-            success, snr_db, bitrate, processing_details = client.send_audio(audio_data)
+            success, snr_db, bitrate, processing_details = client.send_audio(audio_data, recipient_name=recipient_name)
             if success and processing_details:
                 # Convert numpy types to native Python types for JSON serialization
                 snr_value = float(snr_db) if snr_db is not None else None
@@ -368,14 +449,38 @@ def handle_disconnect_from_server():
         web_clients[request.sid].disconnect()
         del web_clients[request.sid]
         emit('server_disconnected', {'status': 'disconnected'})
+        # Broadcast client count update to remaining clients
+        broadcast_client_count_update()
+
+
+@socketio.on('get_client_count')
+def handle_get_client_count():
+    """Handle request to get current client count."""
+    connected_count = len([c for c in web_clients.values() if c.connected])
+    client_list = [{'name': c.client_name, 'id': c.socket_id[:8]} for c in web_clients.values() if c.connected]
+    log(f"[{request.sid[:8]}] Client requested count: {connected_count} clients", "INFO")
+    emit('client_count_update', {
+        'count': connected_count,
+        'clients': client_list
+    })
+    log(f"[{request.sid[:8]}] Sent client count update: {connected_count} clients", "INFO")
 
 
 @socketio.on('get_security_alerts')
 def handle_get_security_alerts():
     """Handle request to get recent security alerts."""
-    recent_alerts = ids.get_recent_alerts(limit=50)
-    alerts_data = [alert.to_dict() for alert in recent_alerts]
-    emit('security_alerts', {'alerts': alerts_data})
+    try:
+        recent_alerts = ids.get_recent_alerts(limit=50)
+        alerts_data = [alert.to_dict() for alert in recent_alerts]
+        log(f"Sending {len(alerts_data)} recent security alerts to web client", "INFO")
+        emit('security_alerts', {'alerts': alerts_data})
+        
+        # Also emit each alert individually to trigger UI updates
+        for alert_dict in alerts_data:
+            emit('security_alert', alert_dict)
+    except Exception as e:
+        log(f"Error getting security alerts: {e}", "ERROR")
+        emit('security_alerts', {'alerts': []})
 
 
 @socketio.on('get_security_stats')

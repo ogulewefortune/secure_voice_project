@@ -22,6 +22,8 @@ class VoiceServer:
         self.server_socket = None
         self.clients = []
         self.client_keys = {}
+        self.client_names = {}  # Map socket -> client name
+        self.client_socket_map = {}  # Map client name -> socket (for reverse lookup)
         self.running = False
         self.ids = get_ids()
         
@@ -36,6 +38,8 @@ class VoiceServer:
     def _on_security_alert(self, alert):
         """Handle security alert."""
         self.log(f"SECURITY ALERT: {alert}", "ALERT")
+        # Note: The web server's callback should also be called since they share the same IDS instance
+        # If running in separate processes, alerts won't propagate automatically
     
     def start(self):
         """Start the server."""
@@ -113,6 +117,20 @@ class VoiceServer:
                 
                 # Add client to list
                 self.clients.append(client_socket)
+                
+                # Request client name
+                send_message(client_socket, 'N', b'')  # Request name
+                msg_type, name_data = receive_message(client_socket)
+                if msg_type == 'N' and name_data:
+                    client_name = name_data.decode('utf-8', errors='ignore')
+                    self.client_names[client_socket] = client_name
+                    self.client_socket_map[client_name] = client_socket
+                    self.log(f"[{client_id}] Client registered as: {client_name}", "INFO")
+                else:
+                    # Use default name
+                    default_name = f"Client_{len(self.clients)}"
+                    self.client_names[client_socket] = default_name
+                    self.client_socket_map[default_name] = client_socket
             except Exception as e:
                 self.log(f"[{client_id}] Key derivation failed: {e}", "ERROR")
                 self.ids.detect_key_exchange_failure(address[0], f"Key derivation error: {str(e)}")
