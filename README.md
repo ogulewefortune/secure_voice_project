@@ -79,7 +79,3 @@ See [SECURITY_TESTS.md](SECURITY_TESTS.md) for detailed documentation.
 - [Security Tests](SECURITY_TESTS.md)
 - [Technical Documentation](docs/technical_documentation.md)
 
-## License
-
-[Add your license here]
-
