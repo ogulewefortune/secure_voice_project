@@ -40,7 +40,7 @@ def handle_security_alert(alert):
         log(f"SECURITY ALERT: {alert}", "ALERT")
         log(f"Broadcasting security alert to web clients: {alert_data}", "ALERT")
         # Emit to all connected web clients
-        socketio.emit('security_alert', alert_data, broadcast=True, namespace='/')
+        socketio.emit('security_alert', alert_data)
         log(f"Security alert emitted successfully", "ALERT")
     except Exception as e:
         log(f"Error handling security alert: {e}", "ERROR")
@@ -363,7 +363,7 @@ def broadcast_client_count_update():
     socketio.emit('client_count_update', {
         'count': connected_count,
         'clients': client_list
-    }, broadcast=True, namespace='/')
+    })
     
     log(f"Client count update event emitted to all clients", "INFO")
 

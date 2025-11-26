@@ -2085,9 +2085,6 @@
             if ('Notification' in window && Notification.permission === 'default') {
                 Notification.requestPermission();
             }
-            if ('Notification' in window && Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
         });
 
         socket.on('connected', (data) => {
@@ -2108,6 +2105,12 @@
                 nameInput.disabled = true;
                 nameInput.style.opacity = '0.6';
             }
+            
+            // Request client count update
+            setTimeout(() => {
+                console.log('Requesting client count after server connection...');
+                socket.emit('get_client_count');
+            }, 500);
         });
 
         socket.on('server_disconnected', (data) => {
@@ -3077,26 +3080,89 @@
                 return;
             }
 
-            // Set audio source
-            audio.src = 'data:audio/wav;base64,' + base64Audio;
-            button.textContent = 'Playing...';
-            button.classList.add('playing');
+            try {
+                // Decode base64 audio data (PCM uint8 format)
+                const audioBytes = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
+                
+                // Convert uint8 PCM to int16 for WAV format
+                // Original conversion: ((int16 + 32768) // 256) -> uint8
+                // Reverse: (uint8 * 256) - 32768 -> int16
+                const int16Data = new Int16Array(audioBytes.length);
+                for (let i = 0; i < audioBytes.length; i++) {
+                    // Convert uint8 [0-255] back to int16 [-32768, 32767]
+                    int16Data[i] = (audioBytes[i] * 256) - 32768;
+                }
+                
+                // Create WAV file from PCM data
+                // Sample rate is 8000 Hz (from SAMPLE_RATE_FOR_64KBPS)
+                const sampleRate = 8000;
+                const numChannels = 1; // Mono
+                const bitsPerSample = 16;
+                const length = int16Data.length * 2; // 2 bytes per sample
+                
+                const buffer = new ArrayBuffer(44 + length);
+                const view = new DataView(buffer);
+                
+                // WAV header
+                const writeString = (offset, string) => {
+                    for (let i = 0; i < string.length; i++) {
+                        view.setUint8(offset + i, string.charCodeAt(i));
+                    }
+                };
+                
+                writeString(0, 'RIFF');
+                view.setUint32(4, 36 + length, true);
+                writeString(8, 'WAVE');
+                writeString(12, 'fmt ');
+                view.setUint32(16, 16, true); // fmt chunk size
+                view.setUint16(20, 1, true); // audio format (PCM)
+                view.setUint16(22, numChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, sampleRate * numChannels * (bitsPerSample / 8), true); // byte rate
+                view.setUint16(32, numChannels * (bitsPerSample / 8), true); // block align
+                view.setUint16(34, bitsPerSample, true);
+                writeString(36, 'data');
+                view.setUint32(40, length, true);
+                
+                // Write audio data (little-endian)
+                const dataView = new DataView(buffer, 44);
+                for (let i = 0; i < int16Data.length; i++) {
+                    dataView.setInt16(i * 2, int16Data[i], true);
+                }
+                
+                // Create blob and URL
+                const blob = new Blob([buffer], { type: 'audio/wav' });
+                const audioUrl = URL.createObjectURL(blob);
+                
+                // Set audio source
+                audio.src = audioUrl;
+                button.textContent = 'Playing...';
+                button.classList.add('playing');
 
-            audio.onended = () => {
-                button.textContent = 'Play';
-                button.classList.remove('playing');
-            };
+                audio.onended = () => {
+                    button.textContent = 'Play';
+                    button.classList.remove('playing');
+                    URL.revokeObjectURL(audioUrl);
+                };
 
-            audio.onerror = () => {
+                audio.onerror = (e) => {
+                    console.error('Error playing audio:', e);
+                    button.textContent = 'Error';
+                    button.classList.remove('playing');
+                    URL.revokeObjectURL(audioUrl);
+                };
+
+                audio.play().catch(err => {
+                    console.error('Error playing audio:', err);
+                    button.textContent = 'Play';
+                    button.classList.remove('playing');
+                    URL.revokeObjectURL(audioUrl);
+                });
+            } catch (err) {
+                console.error('Error processing received audio:', err);
                 button.textContent = 'Error';
                 button.classList.remove('playing');
-            };
-
-            audio.play().catch(err => {
-                console.error('Error playing audio:', err);
-                button.textContent = 'Play';
-                button.classList.remove('playing');
-            });
+            }
         }
 
         function updateMessagesSentCount() {
