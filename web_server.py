@@ -491,7 +491,7 @@ def handle_get_security_stats():
 
 
 def get_local_ip():
-    """Get the local IP address of this machine."""
+    """Get the local IP address of this machine (cross-platform)."""
     try:
         # Connect to a remote address to determine local IP
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -506,13 +506,32 @@ def get_local_ip():
         return ip
     except Exception:
         try:
+            import platform
             hostname = socket.gethostname()
             ip = socket.gethostbyname(hostname)
-            if ip == '127.0.0.1':
-                import subprocess
-                result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
-                if result.returncode == 0 and result.stdout.strip():
-                    ip = result.stdout.strip().split()[0]
+            if ip == '127.0.0.1' or ip.startswith('127.'):
+                # Try alternative method for Windows/Linux
+                if platform.system() == 'Windows':
+                    # Windows: use ipconfig equivalent
+                    import subprocess
+                    result = subprocess.run(['ipconfig'], capture_output=True, text=True, shell=True)
+                    if result.returncode == 0:
+                        # Parse IPv4 address from ipconfig output
+                        import re
+                        matches = re.findall(r'IPv4 Address[.\s]+:\s+(\d+\.\d+\.\d+\.\d+)', result.stdout)
+                        if matches:
+                            # Return first non-loopback address
+                            for match in matches:
+                                if not match.startswith('127.'):
+                                    return match
+                else:
+                    # Linux/Mac: use hostname -I
+                    import subprocess
+                    result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
+                    if result.returncode == 0 and result.stdout.strip():
+                        ip = result.stdout.strip().split()[0]
+                        if not ip.startswith('127.'):
+                            return ip
             return ip
         except Exception:
             return '127.0.0.1'
@@ -532,5 +551,5 @@ if __name__ == '__main__':
     log("")
     log("Make sure the voice server is running on port 8888")
     log("=" * 60)
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
 
