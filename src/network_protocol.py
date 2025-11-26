@@ -89,8 +89,23 @@ def establish_connection(host, port, is_server=False):
             return sock
         else:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((host, port))
-            return sock
+            sock.settimeout(10)  # 10 second timeout
+            try:
+                sock.connect((host, port))
+                sock.settimeout(None)  # Remove timeout after connection
+                return sock
+            except socket.timeout:
+                print(f"Connection timeout: Could not connect to {host}:{port} within 10 seconds")
+                return None
+            except ConnectionRefusedError:
+                print(f"Connection refused: Server at {host}:{port} is not accepting connections")
+                print("  - Check if the server is running")
+                print("  - Check if firewall is blocking the port")
+                print("  - Verify the IP address and port are correct")
+                return None
+            except Exception as e:
+                print(f"Error establishing connection to {host}:{port}: {e}")
+                return None
     except Exception as e:
         print(f"Error establishing connection: {e}")
         return None

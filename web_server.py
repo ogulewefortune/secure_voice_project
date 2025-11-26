@@ -68,8 +68,22 @@ class WebVoiceClient:
     
     def connect(self):
         """Connect to the voice server."""
-        self.socket = establish_connection(self.voice_server_host, self.voice_server_port, is_server=False)
-        if not self.socket:
+        try:
+            self.socket = establish_connection(self.voice_server_host, self.voice_server_port, is_server=False)
+            if not self.socket:
+                log(f"[Web Client {self.socket_id[:8]}] Connection failed: Could not establish connection to {self.voice_server_host}:{self.voice_server_port}", "ERROR")
+                return False
+        except Exception as e:
+            error_msg = str(e)
+            log(f"[Web Client {self.socket_id[:8]}] Connection error: {error_msg}", "ERROR")
+            # Provide helpful error messages
+            if "Connection refused" in error_msg or "[Errno 61]" in error_msg or "[Errno 111]" in error_msg:
+                log(f"[Web Client {self.socket_id[:8]}] TROUBLESHOOTING: Connection refused usually means:", "ERROR")
+                log(f"[Web Client {self.socket_id[:8]}]   1. Voice server is not running on {self.voice_server_host}:{self.voice_server_port}", "ERROR")
+                log(f"[Web Client {self.socket_id[:8]}]   2. Firewall is blocking port {self.voice_server_port} on the server", "ERROR")
+                log(f"[Web Client {self.socket_id[:8]}]   3. Wrong IP address - verify the server IP is correct", "ERROR")
+            elif "No route to host" in error_msg or "[Errno 113]" in error_msg:
+                log(f"[Web Client {self.socket_id[:8]}] TROUBLESHOOTING: Network unreachable - check IP address and network connectivity", "ERROR")
             return False
         
         try:
@@ -394,9 +408,39 @@ def handle_connect_to_server(data):
             broadcast_client_count_update()
         else:
             log(f"[{request.sid[:8]}] Failed to connect to voice server", "ERROR")
-            emit('server_error', {'message': 'Failed to connect to voice server'})
+            error_msg = f"Failed to connect to voice server at {host}:{port}"
+            troubleshooting = []
+            troubleshooting.append("Possible issues:")
+            troubleshooting.append("1. Voice server is not running on the server machine")
+            troubleshooting.append("2. Windows Firewall is blocking port 8888")
+            troubleshooting.append("3. Wrong IP address - verify the server IP is correct")
+            troubleshooting.append("4. Both devices must be on the same network")
+            troubleshooting.append("")
+            troubleshooting.append("On the server (Lenovo):")
+            troubleshooting.append("- Make sure voice server is running: python3 run_server.py")
+            troubleshooting.append("- Check Windows Firewall: Allow port 8888")
+            troubleshooting.append("- Verify IP address shown in server startup")
+            troubleshooting.append("")
+            troubleshooting.append("On your Mac:")
+            troubleshooting.append(f"- Verify you're using the correct IP: {host}")
+            troubleshooting.append(f"- Verify port: {port}")
+            troubleshooting.append("- Try pinging the server: ping " + host)
+            
+            full_message = error_msg + "\n\n" + "\n".join(troubleshooting)
+            emit('server_error', {
+                'message': error_msg,
+                'troubleshooting': troubleshooting,
+                'host': host,
+                'port': port
+            })
     except Exception as e:
-        emit('server_error', {'message': str(e)})
+        error_msg = str(e)
+        emit('server_error', {
+            'message': f'Connection error: {error_msg}',
+            'error': error_msg,
+            'host': data.get('host', 'unknown'),
+            'port': data.get('port', 'unknown')
+        })
 
 
 @socketio.on('send_audio')

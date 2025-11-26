@@ -63,8 +63,10 @@ def get_local_ip():
 class VoiceServer:
     """Server for secure voice communication."""
     
-    def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT):
-        self.host = host
+    def __init__(self, host=None, port=DEFAULT_PORT):
+        # Use '0.0.0.0' to listen on all interfaces (allows network connections)
+        # but keep track of the actual network IP for display
+        self.host = host if host else '0.0.0.0'
         self.port = port
         self.server_socket = None
         self.clients = []
@@ -447,7 +449,9 @@ class VoiceServer:
 
 def main():
     """Main server entry point."""
-    server = VoiceServer()
+    # Use '0.0.0.0' to listen on all network interfaces
+    # This allows connections from other devices on the network
+    server = VoiceServer(host='0.0.0.0')
     try:
         server.start()
     except KeyboardInterrupt:
