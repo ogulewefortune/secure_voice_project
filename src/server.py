@@ -6,12 +6,58 @@ Handles server-side connection, audio distribution, and decryption.
 import socket
 import threading
 import time
+import platform
+import subprocess
+import re
 from datetime import datetime
 from src.config import DEFAULT_HOST, DEFAULT_PORT
 from src.network_protocol import establish_connection, send_message, receive_message, close_connection
 from src.crypto_utils import generate_key_pair, serialize_public_key, deserialize_public_key, derive_shared_secret, derive_aes_key, decrypt_data, encrypt_data
 from src.audio_compression import verify_integrity, add_integrity_check
 from src.intrusion_detection import get_ids, ThreatType
+
+
+def get_local_ip():
+    """Get the local IP address of this machine (cross-platform)."""
+    try:
+        # Connect to a remote address to determine local IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0)
+        try:
+            s.connect(('10.254.254.254', 1))
+            ip = s.getsockname()[0]
+        except Exception:
+            ip = '127.0.0.1'
+        finally:
+            s.close()
+        return ip
+    except Exception:
+        try:
+            hostname = socket.gethostname()
+            ip = socket.gethostbyname(hostname)
+            if ip == '127.0.0.1' or ip.startswith('127.'):
+                # Try alternative method for Windows/Linux
+                if platform.system() == 'Windows':
+                    # Windows: use ipconfig equivalent
+                    result = subprocess.run(['ipconfig'], capture_output=True, text=True, shell=True)
+                    if result.returncode == 0:
+                        # Parse IPv4 address from ipconfig output
+                        matches = re.findall(r'IPv4 Address[.\s]+:\s+(\d+\.\d+\.\d+\.\d+)', result.stdout)
+                        if matches:
+                            # Return first non-loopback address
+                            for match in matches:
+                                if not match.startswith('127.'):
+                                    return match
+                else:
+                    # Linux/Mac: use hostname -I
+                    result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
+                    if result.returncode == 0 and result.stdout.strip():
+                        ip = result.stdout.strip().split()[0]
+                        if not ip.startswith('127.'):
+                            return ip
+            return ip
+        except Exception:
+            return '127.0.0.1'
 
 
 class VoiceServer:
@@ -50,12 +96,28 @@ class VoiceServer:
             return
         
         self.running = True
-        self.log("=" * 60)
-        self.log("Secure Voice Communication Server")
-        self.log("=" * 60)
-        self.log(f"Server started on {self.host}:{self.port}")
+        local_ip = get_local_ip()
+        
+        self.log("")
+        self.log("=" * 70)
+        self.log(" " * 20 + "SECURE VOICE COMMUNICATION SERVER")
+        self.log("=" * 70)
+        self.log("")
+        self.log("SERVER IP ADDRESS FOR OTHER DEVICES:")
+        self.log(" " * 10 + f"  >>>  {local_ip}  <<<")
+        self.log("")
+        self.log("=" * 70)
+        self.log("VOICE SERVER (Port 8888):")
+        self.log(f"  Local access:   {self.host}:{self.port}")
+        self.log(f"  Network access: {local_ip}:{self.port}")
+        self.log("")
+        self.log("TO CONNECT FROM ANOTHER DEVICE:")
+        self.log(f"  Use Server Host: {local_ip}")
+        self.log(f"  Use Server Port: {self.port}")
+        self.log("")
         self.log("Waiting for clients...")
-        self.log("=" * 60)
+        self.log("=" * 70)
+        self.log("")
         
         # Generate server key pair
         self.private_key, self.public_key = generate_key_pair()
