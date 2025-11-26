@@ -2092,16 +2092,29 @@
 
         socket.on('connected', (data) => {
             console.log('Socket connected:', data);
-            // Don't auto-fill - let user enter IP manually
-        });
-        
-        socket.on('server_info', (data) => {
-            // Don't auto-fill - let user enter IP manually
+            // Don't auto-fill - user will enter IP manually
             // Just update placeholder as a hint
             if (data && data.server_ip) {
                 const serverHostInput = document.getElementById('server-host');
                 if (serverHostInput) {
-                    serverHostInput.placeholder = `Enter server IP (e.g., ${data.server_ip})`;
+                    // Only update placeholder if field is empty
+                    if (serverHostInput.value === '' || serverHostInput.value === 'localhost') {
+                        serverHostInput.placeholder = `Enter server IP (e.g., ${data.server_ip})`;
+                    }
+                }
+            }
+        });
+        
+        socket.on('server_info', (data) => {
+            // Don't auto-fill - user will enter IP manually
+            // Just update placeholder as a hint
+            if (data && data.server_ip) {
+                const serverHostInput = document.getElementById('server-host');
+                if (serverHostInput) {
+                    // Only update placeholder if field is empty
+                    if (serverHostInput.value === '' || serverHostInput.value === 'localhost') {
+                        serverHostInput.placeholder = `Enter server IP (e.g., ${data.server_ip})`;
+                    }
                 }
             }
         });

@@ -351,7 +351,7 @@ def handle_connect():
     log(f"Web client connected: {request.sid[:8]}...", "CONNECT")
     server_ip = get_local_ip()
     emit('connected', {'status': 'ok', 'server_ip': server_ip})
-    # Send server info as hint (but don't auto-fill)
+    # Also send server info
     emit('server_info', {'server_ip': server_ip, 'port': DEFAULT_PORT})
 
 
