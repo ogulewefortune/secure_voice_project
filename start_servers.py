@@ -9,6 +9,7 @@ import sys
 import time
 import os
 import signal
+import socket
 from pathlib import Path
 
 def check_port(port):
@@ -88,13 +89,50 @@ def start_servers():
     with open(".web_server.pid", "w") as f:
         f.write(str(web_server.pid))
     
+    # Get local IP address for network access
+    def get_local_ip():
+        """Get the local IP address of this machine."""
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(0)
+            try:
+                s.connect(('10.254.254.254', 1))
+                ip = s.getsockname()[0]
+            except Exception:
+                ip = '127.0.0.1'
+            finally:
+                s.close()
+            return ip
+        except Exception:
+            try:
+                hostname = socket.gethostname()
+                ip = socket.gethostbyname(hostname)
+                if ip == '127.0.0.1':
+                    import subprocess
+                    result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
+                    if result.returncode == 0 and result.stdout.strip():
+                        ip = result.stdout.strip().split()[0]
+                return ip
+            except Exception:
+                return '127.0.0.1'
+    
+    local_ip = get_local_ip()
+    
     print()
     print("=" * 60)
     print("Both servers are running!")
     print("=" * 60)
     print()
-    print(f"Voice Server:  http://localhost:8888 (PID: {voice_server.pid})")
-    print(f"Web Interface: http://localhost:5000 (PID: {web_server.pid})")
+    print(f"Voice Server:")
+    print(f"  Local:  http://localhost:8888")
+    print(f"  Network: http://{local_ip}:8888")
+    print()
+    print(f"Web Interface:")
+    print(f"  Local:  http://localhost:5000")
+    print(f"  Network: http://{local_ip}:5000")
+    print()
+    print(f"To connect from another device on the same network:")
+    print(f"  Open browser and go to: http://{local_ip}:5000")
     print()
     print("Logs:")
     print("  - Voice server: tail -f server.log")
