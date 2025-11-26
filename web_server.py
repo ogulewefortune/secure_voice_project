@@ -335,7 +335,10 @@ def index():
 def handle_connect():
     """Handle web client connection."""
     log(f"Web client connected: {request.sid[:8]}...", "CONNECT")
-    emit('connected', {'status': 'ok'})
+    server_ip = get_local_ip()
+    emit('connected', {'status': 'ok', 'server_ip': server_ip})
+    # Also send server info
+    emit('server_info', {'server_ip': server_ip, 'port': DEFAULT_PORT})
 
 
 @socketio.on('disconnect')
@@ -539,17 +542,32 @@ def get_local_ip():
 
 if __name__ == '__main__':
     local_ip = get_local_ip()
-    log("=" * 60)
-    log("Secure Voice Communication - Web Server")
-    log("=" * 60)
-    log("Starting web server...")
-    log(f"Local access:  http://localhost:5000")
-    log(f"Network access: http://{local_ip}:5000")
     log("")
-    log("To connect from another device on the same network:")
-    log(f"  Open browser and go to: http://{local_ip}:5000")
+    log("=" * 70)
+    log(" " * 20 + "SECURE VOICE COMMUNICATION SERVER")
+    log("=" * 70)
+    log("")
+    log("SERVER IP ADDRESS FOR OTHER DEVICES:")
+    log(" " * 10 + f"  >>>  {local_ip}  <<<")
+    log("")
+    log("=" * 70)
+    log("WEB SERVER (Port 5000):")
+    log(f"  Local access:   http://localhost:5000")
+    log(f"  Network access: http://{local_ip}:5000")
+    log("")
+    log("VOICE SERVER (Port 8888):")
+    log(f"  Server IP:      {local_ip}")
+    log(f"  Port:           8888")
+    log("")
+    log("=" * 70)
+    log("TO CONNECT FROM ANOTHER DEVICE:")
+    log(f"  1. Open browser on the other device")
+    log(f"  2. Go to: http://{local_ip}:5000")
+    log(f"  3. Enter Server Host: {local_ip}")
+    log(f"  4. Enter Server Port: 8888")
     log("")
     log("Make sure the voice server is running on port 8888")
-    log("=" * 60)
+    log("=" * 70)
+    log("")
     socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
 

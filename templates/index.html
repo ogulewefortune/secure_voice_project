@@ -1494,8 +1494,11 @@
                                 <input type="text" id="client-name" value="" placeholder="Enter your name" maxlength="30">
                             </div>
                             <div class="server-config-group">
-                                <label>Server Host</label>
-                                <input type="text" id="server-host" value="localhost" placeholder="localhost">
+                                <label>Server Host (IP Address)</label>
+                                <input type="text" id="server-host" value="localhost" placeholder="Enter server IP (e.g., 192.168.1.100)">
+                                <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5); margin-top: 4px;">
+                                    Will auto-fill with server IP when connected
+                                </div>
                             </div>
                             <div class="server-config-group">
                                 <label>Server Port</label>
@@ -2089,6 +2092,31 @@
 
         socket.on('connected', (data) => {
             console.log('Socket connected:', data);
+            // Auto-fill server IP if provided
+            if (data && data.server_ip) {
+                const serverHostInput = document.getElementById('server-host');
+                if (serverHostInput) {
+                    // Only auto-fill if it's still localhost
+                    if (serverHostInput.value === 'localhost' || serverHostInput.value === '') {
+                        serverHostInput.value = data.server_ip;
+                        serverHostInput.placeholder = `Server IP: ${data.server_ip}`;
+                    }
+                }
+            }
+        });
+        
+        socket.on('server_info', (data) => {
+            // Update server IP in the UI
+            if (data && data.server_ip) {
+                const serverHostInput = document.getElementById('server-host');
+                if (serverHostInput) {
+                    // Only auto-fill if it's still localhost
+                    if (serverHostInput.value === 'localhost' || serverHostInput.value === '') {
+                        serverHostInput.value = data.server_ip;
+                        serverHostInput.placeholder = `Server IP: ${data.server_ip}`;
+                    }
+                }
+            }
         });
 
         socket.on('server_connected', (data) => {
