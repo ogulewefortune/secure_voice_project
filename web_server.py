@@ -304,6 +304,9 @@ class WebVoiceClient:
                         # Encode to base64 for web transmission
                         audio_base64 = base64.b64encode(audio_data).decode('utf-8')
                         
+                        # Get server IP for decryption button
+                        server_ip = get_local_ip()
+                        
                         # Send to web client via SocketIO with packet information
                         # Note: We'll try to get sender name from voice server if possible
                         socketio.emit('audio_received', {
@@ -313,7 +316,9 @@ class WebVoiceClient:
                             'packet_number': self.audio_packet_count,
                             'encrypted_size': encrypted_size,
                             'decrypted_size': decrypted_size,
-                            'sender_name': 'Another Client'  # Will be updated when we track sender names
+                            'sender_name': 'Another Client',  # Will be updated when we track sender names
+                            'is_encrypted': False,  # Already decrypted by server
+                            'server_ip': server_ip  # Server IP for decryption button
                         }, room=self.socket_id)
                         log(f"[Web Client {self.socket_id[:8]}] Forwarded audio to web client", "SEND")
                     except Exception as e:
@@ -535,6 +540,53 @@ def handle_get_security_stats():
     """Handle request to get security statistics."""
     stats = ids.get_statistics()
     emit('security_stats', stats)
+
+
+@socketio.on('decrypt_audio')
+def handle_decrypt_audio(data):
+    """Handle request to decrypt audio (for UI purposes - audio is already decrypted)."""
+    try:
+        message_id = data.get('message_id')
+        audio_base64 = data.get('audio')
+        server_ip = data.get('server_ip')
+        
+        log(f"[{request.sid[:8]}] Decrypt audio request for message {message_id} from server {server_ip}", "INFO")
+        
+        # Note: Audio is already decrypted by the server before sending to web client
+        # This handler is mainly for UI feedback and consistency
+        # The audio received by web clients is already in decrypted PCM format
+        
+        if request.sid in web_clients:
+            client = web_clients[request.sid]
+            if client.connected:
+                # Audio is already decrypted, just return it
+                emit('audio_decrypted', {
+                    'message_id': message_id,
+                    'decrypted_audio': audio_base64,  # Already decrypted
+                    'status': 'success',
+                    'note': 'Audio was already decrypted by server',
+                    'server_ip': server_ip
+                })
+                log(f"[{request.sid[:8]}] Audio decryption confirmed (already decrypted) for server {server_ip}", "INFO")
+            else:
+                emit('audio_decrypted', {
+                    'message_id': message_id,
+                    'status': 'error',
+                    'message': 'Not connected to voice server'
+                })
+        else:
+            emit('audio_decrypted', {
+                'message_id': message_id,
+                'status': 'error',
+                'message': 'Client not found'
+            })
+    except Exception as e:
+        log(f"[{request.sid[:8]}] Error handling decrypt request: {e}", "ERROR")
+        emit('audio_decrypted', {
+            'message_id': data.get('message_id', 'unknown'),
+            'status': 'error',
+            'message': str(e)
+        })
 
 
 def get_local_ip():

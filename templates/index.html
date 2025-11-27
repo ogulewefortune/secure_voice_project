@@ -1320,7 +1320,8 @@
             margin-top: 12px;
         }
 
-        .message-play-button {
+        .message-play-button,
+        .message-decrypt-button {
             background: linear-gradient(135deg, rgba(147, 51, 234, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%);
             color: #ffffff;
             border: none;
@@ -1332,12 +1333,25 @@
             font-weight: 500;
         }
 
-        .message-play-button:hover {
+        .message-play-button:hover,
+        .message-decrypt-button:hover {
             background: linear-gradient(135deg, rgba(168, 85, 247, 1) 0%, rgba(96, 165, 250, 1) 100%);
             transform: translateY(-1px);
         }
 
         .message-play-button.playing {
+            background: rgba(255, 159, 10, 0.9);
+        }
+        
+        .message-decrypt-button {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.9) 0%, rgba(16, 185, 129, 0.9) 100%);
+        }
+        
+        .message-decrypt-button:hover {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 1) 0%, rgba(16, 185, 129, 1) 100%);
+        }
+        
+        .message-decrypt-button.decrypting {
             background: rgba(255, 159, 10, 0.9);
         }
 
@@ -2210,7 +2224,9 @@
                     encryptedSize: encryptedSize,
                     decryptedSize: decryptedSize,
                     timestamp: new Date(),
-                    senderName: data.sender_name || 'Another Client'
+                    senderName: data.sender_name || 'Another Client',
+                    isEncrypted: data.is_encrypted || false,
+                    serverIp: data.server_ip || null
                 });
                 
                 // Auto-play received audio (optional - you can remove this if you want manual playback)
@@ -3081,6 +3097,9 @@
                     <button class="message-play-button" id="${messageId}-play" onclick="playReceivedMessage('${messageId}', '${safeAudio}')">
                         Play
                     </button>
+                    <button class="message-decrypt-button" id="${messageId}-decrypt" onclick="decryptReceivedMessage('${messageId}', '${safeAudio}', '${messageData.serverIp || ''}')" style="margin-left: 8px;">
+                        Decrypt
+                    </button>
                 </div>
                 <audio id="${messageId}-audio" style="display: none;"></audio>
             `;
@@ -3210,6 +3229,91 @@
                 console.error('Error processing received audio:', err);
                 button.textContent = 'Error';
                 button.classList.remove('playing');
+            }
+        }
+        
+        function decryptReceivedMessage(messageId, base64Audio, serverIp) {
+            const button = document.getElementById(messageId + '-decrypt');
+            if (!button) return;
+            
+            if (button.classList.contains('decrypting')) {
+                button.textContent = 'Decrypt';
+                button.classList.remove('decrypting');
+                return;
+            }
+            
+            try {
+                button.textContent = 'Decrypting...';
+                button.classList.add('decrypting');
+                button.disabled = true;
+                
+                // Request decryption from server using the server IP
+                if (serverIp) {
+                    console.log(`Requesting decryption from server at ${serverIp}`);
+                    socket.emit('decrypt_audio', {
+                        audio: base64Audio,
+                        server_ip: serverIp,
+                        message_id: messageId
+                    });
+                    
+                    // Wait for decryption response
+                    const decryptHandler = (data) => {
+                        if (data.message_id === messageId) {
+                            socket.off('audio_decrypted', decryptHandler);
+                            
+                            if (data.status === 'success') {
+                                button.textContent = 'Decrypted';
+                                button.classList.remove('decrypting');
+                                button.disabled = false;
+                                button.style.opacity = '0.6';
+                                updateStatus('Audio decrypted successfully', 'connected');
+                                
+                                // If decrypted audio is provided, update the play button
+                                if (data.decrypted_audio) {
+                                    const playButton = document.getElementById(messageId + '-play');
+                                    if (playButton) {
+                                        // Update the onclick to use decrypted audio
+                                        const safeDecrypted = data.decrypted_audio.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+                                        playButton.setAttribute('onclick', `playReceivedMessage('${messageId}', '${safeDecrypted}')`);
+                                    }
+                                }
+                            } else {
+                                button.textContent = 'Error';
+                                button.classList.remove('decrypting');
+                                button.disabled = false;
+                                updateStatus('Decryption error: ' + (data.message || 'Unknown error'), 'disconnected');
+                            }
+                        }
+                    };
+                    
+                    socket.on('audio_decrypted', decryptHandler);
+                    
+                    // Timeout after 5 seconds
+                    setTimeout(() => {
+                        socket.off('audio_decrypted', decryptHandler);
+                        if (button.classList.contains('decrypting')) {
+                            button.textContent = 'Decrypt';
+                            button.classList.remove('decrypting');
+                            button.disabled = false;
+                            updateStatus('Decryption timeout - audio may already be decrypted', 'connected');
+                        }
+                    }, 5000);
+                } else {
+                    // If no server IP, note that audio is already decrypted
+                    setTimeout(() => {
+                        button.textContent = 'Decrypted';
+                        button.classList.remove('decrypting');
+                        button.disabled = false;
+                        button.style.opacity = '0.6';
+                        updateStatus('Audio is already decrypted (server handles decryption)', 'connected');
+                    }, 500);
+                }
+            } catch (err) {
+                console.error('Error decrypting audio:', err);
+                button.textContent = 'Error';
+                button.classList.remove('decrypting');
+                button.disabled = false;
+                updateStatus('Decryption error: ' + err.message, 'disconnected');
             }
         }
 
