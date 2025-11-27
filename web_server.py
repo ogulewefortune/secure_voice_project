@@ -54,6 +54,22 @@ server_private_key, server_public_key = generate_rsa_key_pair()
 audio_processor = AudioProcessor(sample_rate=SAMPLE_RATE_FOR_64KBPS, bits=16)
 error_correction = ErrorCorrection(nsym=32)  # RS(255, 223) - 14% overhead
 
+# Initialize decryption model
+from src.decryption_model import DecryptionModel
+decryption_model = DecryptionModel(
+    audio_processor=audio_processor,
+    error_correction=error_correction,
+    original_audio_store=original_audio_store
+)
+
+# Initialize audio playback model
+from src.audio_playback_model import AudioPlaybackModel
+audio_playback_model = AudioPlaybackModel(
+    sample_rate=SAMPLE_RATE_FOR_64KBPS,
+    bits_per_sample=16,
+    channels=1
+)
+
 # Initialize IDS and register alert callback for web interface
 ids = get_ids()
 
@@ -219,19 +235,31 @@ class WebVoiceClient:
                     # Store original audio for decryption (keyed by message_id)
                     original_audio_store[message_id] = original_decompressed_audio_base64
                     
-                    # Always send clean (decrypted) audio - no decryption step needed
-                    log(f"[Web Client {self.socket_id[:8]}] Sending CLEAN audio to {recipient_name}", "SEND")
+                    # Create secure packet encrypted with RECIPIENT's session keys
+                    recipient_secure_packet = create_secure_packet(
+                        data=audio_bytes,
+                        session_key=target_client_obj.session_key,
+                        hmac_key=target_client_obj.hmac_key,
+                        private_key=server_private_key,
+                        sequence_number=target_client_obj.audio_packet_count,
+                        associated_data=b''
+                    )
+                    target_client_obj.audio_packet_count += 1
+                    recipient_encrypted_base64 = base64.b64encode(recipient_secure_packet).decode('utf-8')
+                    
+                    # Send encrypted audio - recipient will decrypt with their own keys
+                    log(f"[Web Client {self.socket_id[:8]}] Sending ENCRYPTED audio to {recipient_name} (encrypted with recipient's keys, {len(recipient_secure_packet)} bytes)", "SEND")
                     socketio.emit('audio_received', {
-                        'audio': encrypted_audio_base64,  # Encrypted audio (for display/info only)
-                        'decrypted_audio': original_decompressed_audio_base64,  # Clean audio (always sent)
+                        'audio': recipient_encrypted_base64,  # Encrypted with recipient's own session keys
+                        'decrypted_audio': None,  # Recipient must decrypt using their own keys
                         'format': 'pcm',
                         'verified': True,
                         'packet_number': 0,
-                        'encrypted_size': encrypted_size,
+                        'encrypted_size': len(recipient_secure_packet),
                         'decrypted_size': original_pcm_size,
                         'original_size': original_pcm_size,
                         'sender_name': self.client_name,
-                        'is_encrypted': False,  # Mark as decrypted since clean audio is sent
+                        'is_encrypted': True,  # Mark as encrypted - recipient must decrypt
                         'in_session': self.session_id is not None,
                         'server_ip': get_local_ip(),
                         'message_id': message_id
@@ -266,11 +294,11 @@ class WebVoiceClient:
                         # Store original audio for decryption (keyed by message_id)
                         original_audio_store[message_id] = original_decompressed_audio_base64
                         
-                        # Always send clean (decrypted) audio - no decryption step needed
-                        log(f"[Web Client {self.socket_id[:8]}] Broadcasting CLEAN audio to {client.client_name}", "SEND")
+                        # Send encrypted audio - each recipient will decrypt with their own keys
+                        log(f"[Web Client {self.socket_id[:8]}] Broadcasting ENCRYPTED audio to {client.client_name} (encrypted with recipient's keys, {len(recipient_secure_packet)} bytes)", "SEND")
                         socketio.emit('audio_received', {
-                            'audio': recipient_encrypted_base64,  # Encrypted audio (for display/info only)
-                            'decrypted_audio': original_decompressed_audio_base64,  # Clean audio (always sent)
+                            'audio': recipient_encrypted_base64,  # Encrypted with recipient's own session keys
+                            'decrypted_audio': None,  # Recipient must decrypt using their own keys
                             'format': 'pcm',
                             'verified': True,
                             'packet_number': client.audio_packet_count + 1,
@@ -278,14 +306,14 @@ class WebVoiceClient:
                             'decrypted_size': original_pcm_size,
                             'original_size': original_pcm_size,
                             'sender_name': self.client_name,
-                            'is_encrypted': False,  # Mark as decrypted since clean audio is sent
+                            'is_encrypted': True,  # Mark as encrypted - recipient must decrypt
                             'in_session': self.session_id is not None,
                             'server_ip': get_local_ip(),
                             'message_id': message_id
                         }, room=sid)
                         recipients += 1
                 
-                log(f"[Web Client {self.socket_id[:8]}] Broadcasted to {recipients} client(s)", "SEND")
+                # Log removed per user request
                 success = recipients > 0
             
             # Return success status and processing details
@@ -317,6 +345,20 @@ class WebVoiceClient:
 def index():
     """Serve the main web interface."""
     return render_template('index.html')
+
+
+@app.route('/favicon.ico')
+def favicon():
+    """Handle favicon requests to prevent 404 logs."""
+    from flask import Response
+    # Return empty 200 OK with no content to suppress 404 logs
+    return Response(status=200)
+
+
+# Suppress Werkzeug request logging (including favicon 404s)
+import logging
+werkzeug_logger = logging.getLogger('werkzeug')
+werkzeug_logger.setLevel(logging.ERROR)  # Only log errors, suppress all HTTP request logs
 
 
 @app.route('/api/security_alert', methods=['POST'])
@@ -832,103 +874,85 @@ def handle_decrypt_audio(data):
                             })
                             return
                     
-                    # Verify and decrypt secure packet (RSA signature + HMAC + AES-GCM)
-                    # Note: The packet was signed by the SERVER (sender), so verify with SERVER's public key
-                    log(f"[{request.sid[:8]}] 🔐 Verifying secure packet (RSA signature + HMAC + AES-GCM)...", "DECRYPT")
-                    try:
-                        ec_data, next_sequence = verify_secure_packet(
-                            secure_packet=secure_packet,
-                            session_key=client.session_key,
-                            hmac_key=client.hmac_key,
-                            public_key=server_public_key,  # Verify with SERVER's public key (sender signed with server_private_key)
-                            expected_sequence=client.expected_sequence,
-                            associated_data=b''
-                        )
-                        client.expected_sequence = next_sequence
-                        log(f"[{request.sid[:8]}] ✅ Secure packet verified and decrypted: {encrypted_size} → {len(ec_data)} bytes", "DECRYPT")
-                        log(f"[{request.sid[:8]}] ✅ RSA signature verified, HMAC verified, AES-GCM decrypted", "DECRYPT")
+                    # Use decryption model to decrypt audio with RECIPIENT's own keys
+                    log(f"[{request.sid[:8]}] 🔐 Using DecryptionModel to decrypt audio with RECIPIENT's own session keys...", "DECRYPT")
+                    log(f"[{request.sid[:8]}] Using client '{client.client_name}' session_key and hmac_key for decryption", "DECRYPT")
+                    
+                    result = decryption_model.decrypt_audio(
+                        secure_packet_bytes=secure_packet,
+                        session_key=client.session_key,  # RECIPIENT's own session key
+                        hmac_key=client.hmac_key,  # RECIPIENT's own HMAC key
+                        public_key=server_public_key,  # Verify with SERVER's public key (sender signed with server_private_key)
+                        expected_sequence=client.expected_sequence,
+                        message_id=message_id,
+                        associated_data=b''
+                    )
+                    
+                    # Update sequence number if successful
+                    if result['status'] == 'success':
+                        client.expected_sequence = result['next_sequence']
                         
-                        # Step 1: Decode Reed-Solomon error correction
-                        log(f"[{request.sid[:8]}] 📦 Decoding Reed-Solomon error correction...", "DECRYPT")
-                        adpcm_data, errors_corrected = error_correction.decode(ec_data)
-                        if errors_corrected > 0:
-                            log(f"[{request.sid[:8]}] ✅ Corrected {errors_corrected} errors", "DECRYPT")
-                        elif errors_corrected < 0:
-                            log(f"[{request.sid[:8]}] ⚠️  Error correction failed (too many errors)", "WARNING")
+                        log(f"[{request.sid[:8]}]  Decryption successful via DecryptionModel", "DECRYPT")
+                        log(f"[{request.sid[:8]}]  Source: {result.get('source', 'unknown')}", "DECRYPT")
+                        log(f"[{request.sid[:8]}]  Original size: {result['original_size']} bytes", "DECRYPT")
+                        log(f"[{request.sid[:8]}]  Compressed size: {result['compressed_size']} bytes", "DECRYPT")
+                        if result.get('errors_corrected', 0) > 0:
+                            log(f"[{request.sid[:8]}]  Corrected {result['errors_corrected']} errors", "DECRYPT")
                         
-                        # Step 2: Decompress ADPCM to PCM
-                        log(f"[{request.sid[:8]}] 📦 Decompressing ADPCM to PCM...", "DECRYPT")
-                        # Estimate number of samples (ADPCM is 4 bits per sample, so 1 byte = 2 samples)
-                        estimated_samples = len(adpcm_data) * 2
-                        reconstructed_audio = audio_processor.process_for_playback(adpcm_data, estimated_samples)
+                        decrypted_audio_base64 = result['audio']
+                        decompressed_size = result['original_size']
+                        compressed_size = result['compressed_size']
                         
-                        # Convert to int16 PCM
-                        pcm_audio = (reconstructed_audio * 32767).astype(np.int16)
-                        decompressed_pcm_data = pcm_audio.tobytes()
-                        decompressed_size = len(decompressed_pcm_data)
-                        log(f"[{request.sid[:8]}] ✅ ADPCM decompression complete: {len(adpcm_data)} bytes → {decompressed_size} bytes (PCM)", "DECRYPT")
-                    except ValueError as e:
-                        # Verification failed
-                        log(f"[{request.sid[:8]}] ❌ Secure packet verification FAILED: {e}", "WARNING")
+                        # Validate and prepare audio for playback using AudioPlaybackModel
+                        playback_result = audio_playback_model.prepare_and_validate(decrypted_audio_base64)
+                        if playback_result['status'] == 'success':
+                            log(f"[{request.sid[:8]}] ✅ Audio validated: {playback_result['sample_count']} samples, {playback_result['duration']:.2f}s, RMS: {playback_result['rms']:.1f}", "DECRYPT")
+                            if playback_result.get('is_silent'):
+                                log(f"[{request.sid[:8]}] ⚠️ Warning: Audio appears to be silent (RMS < 100)", "WARNING")
+                        else:
+                            log(f"[{request.sid[:8]}] ⚠️ Audio validation warning: {playback_result.get('message', 'unknown')}", "WARNING")
+                    else:
+                        # Decryption failed
+                        error_msg = result['message']
+                        error_type = result.get('error_type', 'unknown')
+                        log(f"[{request.sid[:8]}]  Decryption failed: {error_msg}", "WARNING")
+                        
                         client_ip = request.remote_addr or request.environ.get('REMOTE_ADDR', 'unknown')
                         
-                        if "Signature verification failed" in str(e):
+                        if error_type == 'signature_failed':
                             ids.detect_integrity_violation(client_ip, {
                                 'message_id': message_id,
                                 'what_attacker_tried': 'RSA signature verification failed - possible imposter!'
                             })
-                        elif "HMAC verification failed" in str(e):
+                        elif error_type == 'hmac_failed':
                             ids.detect_integrity_violation(client_ip, {
                                 'message_id': message_id,
                                 'what_attacker_tried': 'HMAC verification failed - content manipulated!'
                             })
                         else:
-                            ids.detect_decryption_failure(client_ip, str(e))
+                            ids.detect_decryption_failure(client_ip, error_msg)
                         
                         emit('audio_decrypted', {
                             'message_id': message_id,
                             'status': 'error',
-                            'message': f'Verification failed: {str(e)}'
+                            'message': f'Decryption failed: {error_msg}'
                         })
                         log("=" * 70)
                         return
                     
-                    # Try to get the ORIGINAL audio (before compression) from store
-                    # This avoids quantization artifacts from decompressing compressed audio
-                    log(f"[{request.sid[:8]}] 🔍 Looking up original audio in store with message_id: {message_id}", "DECRYPT")
-                    log(f"[{request.sid[:8]}] Store has {len(original_audio_store)} entries", "DECRYPT")
-                    if message_id in original_audio_store:
-                        log(f"[{request.sid[:8]}] 🎯 Found original audio in store - using pristine original (no quantization artifacts)", "DECRYPT")
-                        decrypted_audio_base64 = original_audio_store[message_id]
-                        # Decode to get size
-                        original_audio_bytes = base64.b64decode(decrypted_audio_base64)
-                        decompressed_size = len(original_audio_bytes)
-                        compressed_size = len(adpcm_data)
-                        log(f"[{request.sid[:8]}] ✅ Using original audio: {decompressed_size} bytes (int16, pristine quality)", "DECRYPT")
-                    else:
-                        # Log available keys for debugging
-                        available_keys = list(original_audio_store.keys())[:5]  # Show first 5 keys
-                        log(f"[{request.sid[:8]}] ⚠️  Original audio not found in store. Looking for: {message_id}", "DECRYPT")
-                        log(f"[{request.sid[:8]}] Available keys (first 5): {available_keys}", "DECRYPT")
-                        # Fallback: Use decompressed audio from processing pipeline
-                        log(f"[{request.sid[:8]}] ⚠️  Using decompressed audio from processing pipeline", "DECRYPT")
-                        # Convert to little-endian int16 for JavaScript
-                        decompressed_bytes_le = np.frombuffer(decompressed_pcm_data, dtype=np.int16).astype('<i2').tobytes()
-                        decrypted_audio_base64 = base64.b64encode(decompressed_bytes_le).decode('utf-8')
-                        decompressed_size = len(decompressed_bytes_le)
-                        compressed_size = len(adpcm_data)
-                    
-                    log(f"[{request.sid[:8]}] 📤 Sending decrypted audio to client: {decompressed_size} bytes", "DECRYPT")
+                    # Send success response with decrypted audio from model
+                    log(f"[{request.sid[:8]}]  Sending decrypted audio to client: {decompressed_size} bytes", "DECRYPT")
                     emit('audio_decrypted', {
                         'message_id': message_id,
                         'decrypted_audio': decrypted_audio_base64,
                         'status': 'success',
-                        'note': 'Audio decrypted, error-corrected, and decompressed successfully',
-                        'original_size': decompressed_size,  # Size after decompression (back to original PCM)
-                        'compressed_size': compressed_size,  # Size before decompression (ADPCM)
+                        'note': f'Audio decrypted successfully via DecryptionModel (source: {result.get("source", "unknown")})',
+                        'original_size': decompressed_size,  # Size of original/uncompressed audio
+                        'compressed_size': compressed_size,  # Size of compressed audio (ADPCM)
+                        'errors_corrected': result.get('errors_corrected', 0),
                         'server_ip': server_ip
                     })
-                    log(f"[{request.sid[:8]}] ✅ DECRYPTION COMPLETE for message {message_id}", "DECRYPT")
+                    log(f"[{request.sid[:8]}]  DECRYPTION COMPLETE for message {message_id}", "DECRYPT")
                     log("=" * 70)
                 except Exception as decrypt_error:
                     error_msg = str(decrypt_error)
@@ -1067,5 +1091,9 @@ if __name__ == '__main__':
     log("Press Ctrl+C to stop the server")
     log("=" * 70)
     log("")
-    socketio.run(app, host='0.0.0.0', port=DEFAULT_WEB_PORT, debug=False, allow_unsafe_werkzeug=True)
+    # Suppress Werkzeug request logging
+    import logging
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+    
+    socketio.run(app, host='0.0.0.0', port=DEFAULT_WEB_PORT, debug=False, allow_unsafe_werkzeug=True, log_output=False)
 

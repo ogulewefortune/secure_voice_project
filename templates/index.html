@@ -2371,12 +2371,18 @@
                 
                 // Add to received messages list
                 // Store encrypted audio, and also store hidden decrypted audio (original before compression)
-                console.log('Received audio message:', {
+                console.log('📥 Received audio message:', {
                     hasDecryptedAudio: !!data.decrypted_audio,
                     decryptedAudioLength: data.decrypted_audio ? data.decrypted_audio.length : 0,
                     encryptedSize: encryptedSize,
-                    originalSize: data.original_size
+                    originalSize: data.original_size,
+                    messageId: data.message_id
                 });
+                
+                if (!data.decrypted_audio) {
+                    console.error('❌ CRITICAL: No decrypted_audio in received data! This should not happen.');
+                    updateStatus('⚠️ Received audio but no decrypted version available', 'disconnected');
+                }
                 
                 const messageId = addReceivedMessage({
                     audio: data.audio,  // This is encrypted audio (for display)
@@ -2394,13 +2400,18 @@
                 
                 // Auto-play decrypted audio (always available now)
                 if (data.decrypted_audio) {
+                    console.log(`✅ [${messageId}] Auto-playing decrypted audio (${data.decrypted_audio.length} chars)`);
                     setTimeout(() => {
                         // Auto-play the decrypted audio directly
                         const playButton = document.getElementById(messageId + '-play');
                         if (playButton) {
                             playReceivedMessage(messageId, data.decrypted_audio);
+                        } else {
+                            console.warn(`⚠️ [${messageId}] Play button not found for auto-play`);
                         }
-                    }, 100);
+                    }, 200); // Increased delay to ensure DOM is ready
+                } else {
+                    console.error(`❌ [${messageId}] No decrypted_audio in received data!`);
                 }
             } else {
                 updateStatus('Audio received but integrity check failed', 'disconnected');
@@ -3338,9 +3349,16 @@
             }
             
             const senderName = messageData.senderName || 'Another Client';
-            // Use decrypted audio for play button if available, otherwise use encrypted (will show static)
+            // Always use decrypted audio if available (it should always be available now)
             const audioForPlay = messageData.decryptedAudio || safeAudio;
             const safeAudioForPlay = audioForPlay.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            
+            // Log what we're using
+            if (messageData.decryptedAudio) {
+                console.log(`✅ Message ${messageId}: Using decrypted audio (${messageData.decryptedAudio.length} chars)`);
+            } else {
+                console.warn(`⚠️ Message ${messageId}: No decrypted audio available, using encrypted audio`);
+            }
             
             messageItem.innerHTML = `
                 <div class="received-message-header">
@@ -3350,11 +3368,14 @@
                     <div class="received-message-time">${timeStr}</div>
                 </div>
                 <div class="received-message-info" id="${messageId}-info">
-                    Packet #${messageData.packetNumber} | ${sizeKB} KB | ${messageData.encryptedSize.toLocaleString()} bytes encrypted
+                    Packet #${messageData.packetNumber} | ${sizeKB} KB original uncompressed audio | ${messageData.encryptedSize.toLocaleString()} bytes encrypted
                 </div>
                 <div class="received-message-controls">
-                    <button class="message-play-button" id="${messageId}-play" onclick="playReceivedMessage('${messageId}', '${safeAudioForPlay}')">
-                        Play
+                    <button class="message-play-button" id="${messageId}-play" onclick="playReceivedMessage('${messageId}')" title="Play original uncompressed audio" data-has-decrypted="${!!messageData.decryptedAudio}">
+                        ▶ Play Original Audio
+                    </button>
+                    <button class="message-decrypt-button" id="${messageId}-decrypt" onclick="decryptReceivedMessage('${messageId}', '${safeAudio}', '${messageData.serverIp || ''}')" style="margin-left: 8px;" title="Decrypt audio using DecryptionModel">
+                        🔓 Decrypt
                     </button>
                 </div>
                 <audio id="${messageId}-audio" style="display: none;"></audio>
@@ -3413,13 +3434,16 @@
             const button = document.getElementById(messageId + '-play');
             const audio = document.getElementById(messageId + '-audio');
             
-            if (!button || !audio) return;
+            if (!button || !audio) {
+                console.error('❌ Play button or audio element not found for:', messageId);
+                return;
+            }
 
             if (button.classList.contains('playing')) {
                 // Stop playing
                 audio.pause();
                 audio.currentTime = 0;
-                button.textContent = 'Play';
+                button.textContent = '▶ Play Original Audio';
                 button.classList.remove('playing');
                 return;
             }
@@ -3433,10 +3457,12 @@
             const audioToPlay = decryptedAudio || base64Audio;
             
             if (decryptedAudio) {
-                console.log('✅ Using ORIGINAL decrypted audio for playback (pristine quality, no static)');
+                console.log(`✅ [${messageId}] Using ORIGINAL decrypted audio for playback (${decryptedAudio.length} chars, pristine quality, no static)`);
             } else {
                 // Fallback to encrypted if decrypted not available (shouldn't happen now)
-                console.warn('⚠️ No decrypted audio found - using encrypted audio');
+                console.warn(`⚠️ [${messageId}] No decrypted audio found! Button has decrypted: ${button.getAttribute('data-decrypted-audio') ? 'YES' : 'NO'}, Message item has: ${messageItem?.getAttribute('data-decrypted-audio') ? 'YES' : 'NO'}`);
+                console.warn(`⚠️ [${messageId}] Using encrypted audio - this will sound like static!`);
+                updateStatus('⚠️ No decrypted audio available - playing encrypted audio (will sound like static)', 'disconnected');
             }
 
             try {
@@ -3510,9 +3536,25 @@
                 view.setUint32(40, length, true);
                 
                 // Write audio data (little-endian)
+                // Use DataView for proper little-endian int16 writing
                 const dataView = new DataView(buffer, 44);
                 for (let i = 0; i < int16Data.length; i++) {
+                    // Write int16 value as little-endian (true = little-endian)
                     dataView.setInt16(i * 2, int16Data[i], true);
+                }
+                
+                // Verify audio data is not all zeros (silence check)
+                const sampleSlice = Array.from(int16Data.slice(0, Math.min(1000, int16Data.length)));
+                const hasAudio = sampleSlice.some(s => s !== 0);
+                const minVal = Math.min(...int16Data.slice(0, Math.min(1000, int16Data.length)));
+                const maxVal = Math.max(...int16Data.slice(0, Math.min(1000, int16Data.length)));
+                
+                console.log(`✅ Created WAV file: ${buffer.byteLength} bytes, ${int16Data.length} samples, ${sampleRate} Hz, duration: ${(int16Data.length / sampleRate).toFixed(2)}s`);
+                console.log(`✅ Audio range: min=${minVal}, max=${maxVal}, hasAudio=${hasAudio}`);
+                
+                if (!hasAudio) {
+                    console.warn('⚠️ Audio data appears to be all zeros (silence)');
+                    updateStatus('⚠️ Decrypted audio is silent - may be an issue with the audio source', 'disconnected');
                 }
                 
                 // Create blob and URL
@@ -3521,27 +3563,29 @@
                 
                 // Set audio source
                 audio.src = audioUrl;
-                button.textContent = 'Playing...';
+                button.textContent = '⏸ Playing Original Audio...';
                 button.classList.add('playing');
 
                 audio.onended = () => {
-                    button.textContent = 'Play';
+                    button.textContent = '▶ Play Original Audio';
                     button.classList.remove('playing');
                     URL.revokeObjectURL(audioUrl);
                 };
 
                 audio.onerror = (e) => {
-                    console.error('Error playing audio:', e);
-                    button.textContent = 'Error';
+                    console.error('❌ Error playing audio:', e, audio.error);
+                    button.textContent = '▶ Play Original Audio';
                     button.classList.remove('playing');
                     URL.revokeObjectURL(audioUrl);
+                    updateStatus('❌ Error playing audio - check browser console for details', 'disconnected');
                 };
 
                 audio.play().catch(err => {
-                    console.error('Error playing audio:', err);
-                    button.textContent = 'Play';
+                    console.error('❌ Error playing audio:', err);
+                    button.textContent = '▶ Play Original Audio';
                     button.classList.remove('playing');
                     URL.revokeObjectURL(audioUrl);
+                    updateStatus('❌ Error playing audio: ' + err.message, 'disconnected');
                 });
             } catch (err) {
                 console.error('Error processing received audio:', err);
@@ -3646,55 +3690,52 @@
                                 button.disabled = false;
                                 button.onclick = null; // Remove onclick to prevent re-decrypting
                                 
-                                updateStatus(`✅ Audio decrypted: ${data.original_size ? (data.original_size / 1024).toFixed(2) + ' KB' : 'success'} (restored to original size)`, 'connected');
+                                updateStatus(`✅ Audio decrypted via DecryptionModel: ${data.original_size ? (data.original_size / 1024).toFixed(2) + ' KB' : 'success'} (restored to original size)`, 'connected');
                                 
-                                // If decrypted audio is provided, show the "Listen to Audio" button
+                                // If decrypted audio is provided, update play button
                                 if (data.decrypted_audio) {
-                                    console.log('✅ Decrypted audio received, length:', data.decrypted_audio.length, 'chars');
+                                    console.log('✅ Decrypted audio received from DecryptionModel, length:', data.decrypted_audio.length, 'chars');
                                     const playButton = document.getElementById(messageId + '-play');
-                                    const listenButton = document.getElementById(messageId + '-listen');
                                     const messageItem = button.closest('.received-message-item');
                                     
                                     if (playButton) {
                                         // Store decrypted audio in data attribute for reliable access
                                         playButton.setAttribute('data-decrypted-audio', data.decrypted_audio);
                                         console.log('✅ Stored decrypted audio in playButton data attribute');
-                                        // Also update onclick to use decrypted audio
-                                        const safeDecrypted = data.decrypted_audio.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                                        playButton.setAttribute('onclick', `playReceivedMessage('${messageId}', '${safeDecrypted}')`);
-                                        // Enable the play button
+                                        // Update button to show it's ready to play decrypted audio
                                         playButton.disabled = false;
-                                        playButton.textContent = 'Play';
-                                    }
-                                    
-                                    if (listenButton) {
-                                        // Show the "Listen to Audio" button
-                                        listenButton.style.display = 'inline-block';
-                                        listenButton.classList.add('visible');
-                                        // Store decrypted audio for the listen button
-                                        listenButton.setAttribute('data-decrypted-audio', data.decrypted_audio);
-                                        console.log('✅ "Listen to Audio" button shown for decrypted audio');
+                                        playButton.textContent = '▶ Play Original Audio';
+                                        playButton.title = 'Play decrypted original audio';
                                     }
                                     
                                     if (messageItem) {
                                         messageItem.setAttribute('data-decrypted-audio', data.decrypted_audio);
-                                    }
-                                    
-                                    // Update message info to show decrypted size
-                                    const messageInfo = messageItem?.querySelector('.received-message-info') || 
-                                                      document.getElementById(messageId + '-info');
-                                    if (messageInfo && data.original_size) {
-                                        const originalKB = (data.original_size / 1024).toFixed(2);
-                                        // Try to get packet number from existing message info or use default
-                                        const existingText = messageInfo.textContent || '';
-                                        const packetMatch = existingText.match(/Packet #(\d+)/);
-                                        const packetNum = packetMatch ? packetMatch[1] : '?';
-                                        messageInfo.textContent = `Packet #${packetNum} | ${originalKB} KB | ${data.original_size.toLocaleString()} bytes decrypted ✅`;
-                                        messageInfo.style.color = 'rgba(52, 211, 153, 0.9)'; // Green color for decrypted
+                                        console.log('✅ Stored decrypted audio on message item');
+                                        
+                                        // Update message info to show decrypted size
+                                        const messageInfo = messageItem.querySelector('.received-message-info') || 
+                                                          document.getElementById(messageId + '-info');
+                                        if (messageInfo && data.original_size) {
+                                            const originalKB = (data.original_size / 1024).toFixed(2);
+                                            // Try to get packet number from existing message info or use default
+                                            const existingText = messageInfo.textContent || '';
+                                            const packetMatch = existingText.match(/Packet #(\d+)/);
+                                            const packetNum = packetMatch ? packetMatch[1] : '?';
+                                            messageInfo.textContent = `Packet #${packetNum} | ${originalKB} KB original uncompressed audio | Decrypted ✅`;
+                                            messageInfo.style.color = 'rgba(52, 211, 153, 0.9)'; // Green color for decrypted
+                                        }
                                     }
                                     
                                     console.log('✅ Decrypted audio stored. Original size:', data.original_size, 'bytes');
-                                    console.log('✅ Click "Listen to Audio" to hear the decrypted version');
+                                    
+                                    // Auto-play the decrypted audio after a short delay
+                                    setTimeout(() => {
+                                        const playBtn = document.getElementById(messageId + '-play');
+                                        if (playBtn) {
+                                            console.log(`🎵 Auto-playing decrypted audio for message ${messageId}`);
+                                            playReceivedMessage(messageId);
+                                        }
+                                    }, 300);
                                 }
                             } else {
                                 button.textContent = 'Error';
