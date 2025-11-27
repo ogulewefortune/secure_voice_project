@@ -6,6 +6,7 @@ Web server launcher script.
 import socket
 import subprocess
 from web_server import app, socketio
+from src.config import DEFAULT_WEB_PORT
 
 def get_local_ip():
     """Get the local IP address of this machine (cross-platform)."""
@@ -91,9 +92,9 @@ if __name__ == '__main__':
     log(" " * 10 + f"  >>>  {local_ip}  <<<")
     log("")
     log("=" * 70)
-    log("WEB SERVER (Port 5000):")
-    log(f"  Local access:   http://localhost:5000")
-    log(f"  Network access: http://{local_ip}:5000")
+    log(f"WEB SERVER (Port {DEFAULT_WEB_PORT}):")
+    log(f"  Local access:   http://localhost:{DEFAULT_WEB_PORT}")
+    log(f"  Network access: http://{local_ip}:{DEFAULT_WEB_PORT}")
     log("")
     log("VOICE SERVER (Port 8888):")
     log(f"  Server IP:      {local_ip}")
@@ -101,13 +102,13 @@ if __name__ == '__main__':
     log("")
     log("=" * 70)
     log("INTEGRATED SERVER (All-in-One):")
-    log(f"  Web Interface:  http://{local_ip}:5000")
+    log(f"  Web Interface:  http://{local_ip}:{DEFAULT_WEB_PORT}")
     log(f"  Voice Server:   Integrated (port 8888)")
     log("")
     log("=" * 70)
     log("TO CONNECT FROM ANOTHER DEVICE:")
     log(f"  1. Open browser on the other device")
-    log(f"  2. Go to: http://{local_ip}:5000")
+    log(f"  2. Go to: http://{local_ip}:{DEFAULT_WEB_PORT}")
     log(f"  3. Click 'Connect to Server' - no need to enter IP/port!")
     log("")
     log("NOTE: Voice server is integrated - no need to run run_server.py separately!")
@@ -116,10 +117,10 @@ if __name__ == '__main__':
     log("  If devices can't connect, check macOS Firewall:")
     log("  System Settings > Network > Firewall > Options")
     log("  Allow incoming connections for Python, or disable firewall")
-    log("  Make sure ports 5000 and 8888 are not blocked")
+    log(f"  Make sure ports {DEFAULT_WEB_PORT} and 8888 are not blocked")
     log("")
     log("Press Ctrl+C to stop the server")
     log("=" * 70)
     log("")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=DEFAULT_WEB_PORT, debug=False, allow_unsafe_werkzeug=True)
 

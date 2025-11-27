@@ -6,6 +6,7 @@ Handles application configuration and settings.
 # Default configuration values
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = 8888
+DEFAULT_WEB_PORT = 5001  # Web server port (5000 often used by macOS AirPlay)
 DEFAULT_SAMPLE_RATE = 8000  # Reduced for 64 Kbps requirement
 DEFAULT_CHUNK_SIZE = 1024
 DEFAULT_AUDIO_FORMAT = "pcm"

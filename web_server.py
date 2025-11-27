@@ -12,7 +12,7 @@ import numpy as np
 from datetime import datetime
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
-from src.config import DEFAULT_HOST, DEFAULT_PORT, TARGET_BITRATE, MIN_SNR_DB, SAMPLE_RATE_FOR_64KBPS, QUANTIZATION_BITS
+from src.config import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_WEB_PORT, TARGET_BITRATE, MIN_SNR_DB, SAMPLE_RATE_FOR_64KBPS, QUANTIZATION_BITS
 from src.network_protocol import establish_connection, send_message, receive_message, close_connection
 from src.crypto_utils import generate_key_pair, serialize_public_key, deserialize_public_key, derive_shared_secret, derive_aes_key, encrypt_data, decrypt_data
 from src.audio_compression import compress_to_64kbps, calculate_snr, add_integrity_check, verify_integrity
@@ -703,13 +703,13 @@ if __name__ == '__main__':
     log("")
     log("=" * 70)
     log("INTEGRATED SERVER (All-in-One):")
-    log(f"  Web Interface:  http://{local_ip}:5000")
+    log(f"  Web Interface:  http://{local_ip}:{DEFAULT_WEB_PORT}")
     log(f"  Voice Server:   Integrated (port {DEFAULT_PORT})")
     log("")
     log("=" * 70)
     log("TO CONNECT FROM ANOTHER DEVICE:")
     log(f"  1. Open browser on the other device")
-    log(f"  2. Go to: http://{local_ip}:5000")
+    log(f"  2. Go to: http://{local_ip}:{DEFAULT_WEB_PORT}")
     log(f"  3. Click 'Connect to Server' - no need to enter IP/port!")
     log("")
     log("NOTE: Voice server is integrated - no need to run run_server.py separately!")
@@ -718,10 +718,10 @@ if __name__ == '__main__':
     log("  If devices can't connect, check macOS Firewall:")
     log("  System Settings > Network > Firewall > Options")
     log("  Allow incoming connections for Python, or disable firewall")
-    log("  Make sure ports 5000 and 8888 are not blocked")
+    log(f"  Make sure ports {DEFAULT_WEB_PORT} and {DEFAULT_PORT} are not blocked")
     log("")
     log("Press Ctrl+C to stop the server")
     log("=" * 70)
     log("")
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host='0.0.0.0', port=DEFAULT_WEB_PORT, debug=False, allow_unsafe_werkzeug=True)
 
