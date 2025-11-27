@@ -104,11 +104,10 @@ def main():
     print_section("Web Interface")
     
     print("To see security alerts in real-time:")
-    print("  1. Start the voice server: python3 run_server.py")
-    print("  2. Start the web server: python3 run_web_server.py")
-    print("  3. Open http://localhost:5000 in your browser")
-    print("  4. Connect to the server and perform attacks")
-    print("  5. Watch the Security Alerts panel for real-time threat detection")
+    print("  1. Start the server: python3 web_server.py")
+    print("  2. Open http://localhost:5000 in your browser")
+    print("  3. Connect to the server and perform attacks")
+    print("  4. Watch the Security Alerts panel for real-time threat detection")
     
     print_section("Test in Browser Console")
     

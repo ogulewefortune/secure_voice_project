@@ -442,17 +442,20 @@ class TestIntegrityProtection(unittest.TestCase):
         2. Attacker modifies message
         3. HMAC verification fails
         """
-        from src.audio_compression import add_integrity_check, verify_integrity
+        from src.crypto_utils import compute_hmac, verify_hmac
         
         # Original data
         original_data = b"important audio data"
         integrity_key = b"secret_key_16bytes"  # 16 bytes
         
         # Add HMAC
-        data_with_hmac = add_integrity_check(original_data, integrity_key)
+        hmac_tag = compute_hmac(original_data, integrity_key)
+        data_with_hmac = original_data + hmac_tag
         
         # Verify original data passes
-        is_valid, recovered_data = verify_integrity(data_with_hmac, integrity_key)
+        received_hmac = data_with_hmac[-32:]
+        recovered_data = data_with_hmac[:-32]
+        is_valid = verify_hmac(recovered_data, received_hmac, integrity_key)
         self.assertTrue(is_valid, "Original data should pass integrity check")
         self.assertEqual(recovered_data, original_data, "Recovered data should match original")
         
@@ -461,7 +464,9 @@ class TestIntegrityProtection(unittest.TestCase):
         tampered_data[5] = (tampered_data[5] + 1) % 256  # Modify a byte
         
         # Verify tampered data fails
-        is_valid, _ = verify_integrity(bytes(tampered_data), integrity_key)
+        tampered_hmac = bytes(tampered_data)[-32:]
+        tampered_payload = bytes(tampered_data)[:-32]
+        is_valid = verify_hmac(tampered_payload, tampered_hmac, integrity_key)
         self.assertFalse(is_valid, "Tampered data should fail integrity check")
     
     def test_hmac_detects_wrong_key(self):
@@ -473,21 +478,24 @@ class TestIntegrityProtection(unittest.TestCase):
         2. Verification attempted with key B
         3. Verification fails
         """
-        from src.audio_compression import add_integrity_check, verify_integrity
+        from src.crypto_utils import compute_hmac, verify_hmac
         
         original_data = b"secret audio"
         correct_key = b"correct_key_16b"
         wrong_key = b"wrong_key_16byte"
         
         # Add HMAC with correct key
-        data_with_hmac = add_integrity_check(original_data, correct_key)
+        hmac_tag = compute_hmac(original_data, correct_key)
+        data_with_hmac = original_data + hmac_tag
         
         # Verify with correct key should pass
-        is_valid, _ = verify_integrity(data_with_hmac, correct_key)
+        received_hmac = data_with_hmac[-32:]
+        payload = data_with_hmac[:-32]
+        is_valid = verify_hmac(payload, received_hmac, correct_key)
         self.assertTrue(is_valid, "Verification with correct key should pass")
         
         # Verify with wrong key should fail
-        is_valid, _ = verify_integrity(data_with_hmac, wrong_key)
+        is_valid = verify_hmac(payload, received_hmac, wrong_key)
         self.assertFalse(is_valid, "Verification with wrong key should fail")
 
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Secure Voice Communication</title>
+    <title>Whisper - Secure End-to-End Encrypted Voice Communication</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
         * {
@@ -16,7 +16,7 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            background: linear-gradient(180deg, #0a0a0f 0%, #1a0f2e 30%, #1a1a3e 60%, #0f1a2e 100%);
+            background: linear-gradient(180deg, #000000 0%, #0a0a0f 30%, #0a1520 60%, #000510 100%);
             background-attachment: fixed;
             min-height: 100vh;
             margin: 0;
@@ -36,9 +36,8 @@
             width: 100%;
             height: 100%;
             background: 
-                radial-gradient(circle at 20% 30%, rgba(219, 39, 119, 0.15) 0%, transparent 50%),
-                radial-gradient(circle at 50% 50%, rgba(147, 51, 234, 0.12) 0%, transparent 60%),
-                radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
+                radial-gradient(circle at 20% 80%, rgba(0, 100, 150, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(0, 120, 140, 0.06) 0%, transparent 50%);
             pointer-events: none;
             z-index: 0;
         }
@@ -55,14 +54,13 @@
         }
 
         .header {
-            background: rgba(0, 0, 0, 0.4);
-            backdrop-filter: saturate(180%) blur(40px);
-            -webkit-backdrop-filter: saturate(180%) blur(40px);
-            padding: 20px 40px;
-            border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
-            position: sticky;
-            top: 0;
+            background: transparent;
+            padding: 40px 40px 30px 40px;
+            border-bottom: none;
+            position: relative;
             z-index: 100;
+            text-align: center;
+            margin-bottom: 20px;
         }
 
         /* Adjust container position when threat banner is shown */
@@ -184,21 +182,58 @@
         }
 
         h1 {
-            color: #ffffff;
-            text-align: left;
-            margin: 0 0 6px 0;
-            font-size: 28px;
-            font-weight: 600;
-            letter-spacing: -0.5px;
+            color: #00ff88;
+            text-align: center;
+            margin: 0 0 15px 0;
+            font-size: 64px;
+            font-weight: 700;
+            letter-spacing: -1px;
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+            text-shadow: 
+                0 0 20px rgba(0, 255, 136, 0.6),
+                0 0 40px rgba(0, 255, 136, 0.4),
+                0 0 60px rgba(0, 255, 136, 0.2);
+            animation: glowPulse 3s ease-in-out infinite;
+            line-height: 1.1;
+        }
+
+        @keyframes glowPulse {
+            0%, 100% {
+                text-shadow: 
+                    0 0 20px rgba(0, 255, 136, 0.6),
+                    0 0 40px rgba(0, 255, 136, 0.4),
+                    0 0 60px rgba(0, 255, 136, 0.2);
+            }
+            50% {
+                text-shadow: 
+                    0 0 30px rgba(0, 255, 136, 0.8),
+                    0 0 50px rgba(0, 255, 136, 0.6),
+                    0 0 70px rgba(0, 255, 136, 0.4);
+            }
+        }
+
+        .title-divider {
+            width: 400px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, #00ff88 20%, #00ff88 80%, transparent 100%);
+            margin: 0 auto 15px auto;
+            box-shadow: 
+                0 0 10px rgba(0, 255, 136, 0.6),
+                0 0 20px rgba(0, 255, 136, 0.4);
+            opacity: 0.8;
         }
 
         .subtitle {
-            color: rgba(255, 255, 255, 0.5);
+            color: #00ff88;
             margin: 0;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 400;
-            letter-spacing: -0.2px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-align: center;
+            text-shadow: 
+                0 0 10px rgba(0, 255, 136, 0.5),
+                0 0 20px rgba(0, 255, 136, 0.3);
         }
 
         .main-content {
@@ -206,7 +241,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 60px 40px;
+            padding: 20px 40px 60px 40px;
             max-width: 1400px;
             margin: 0 auto;
             width: 100%;
@@ -1354,6 +1389,44 @@
         .message-decrypt-button.decrypting {
             background: rgba(255, 159, 10, 0.9);
         }
+        
+        .message-decrypt-button.decrypted {
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%);
+            border: 1px solid rgba(52, 211, 153, 0.5);
+            color: #34d399;
+            cursor: default;
+        }
+        
+        .message-decrypt-button.decrypted:hover {
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.3) 0%, rgba(16, 185, 129, 0.3) 100%);
+        }
+        
+        .message-listen-button {
+            background: linear-gradient(135deg, rgba(52, 211, 153, 0.9) 0%, rgba(16, 185, 129, 0.9) 100%);
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            margin-left: 8px;
+            display: none; /* Hidden by default, shown after decryption */
+        }
+        
+        .message-listen-button:hover {
+            background: linear-gradient(135deg, rgba(52, 211, 153, 1) 0%, rgba(16, 185, 129, 1) 100%);
+            transform: translateY(-1px);
+        }
+        
+        .message-listen-button.playing {
+            background: rgba(52, 211, 153, 0.7);
+        }
+        
+        .message-listen-button.visible {
+            display: inline-block;
+        }
 
         #received-messages-list {
             scrollbar-width: thin;
@@ -1400,7 +1473,16 @@
             }
 
             h1 {
-                font-size: 1.5em;
+                font-size: 48px;
+            }
+
+            .title-divider {
+                width: 280px;
+            }
+
+            .subtitle {
+                font-size: 11px;
+                letter-spacing: 1px;
             }
 
             .main-content {
@@ -1443,8 +1525,9 @@
 
     <div class="container">
         <div class="header">
-            <h1>Secure Voice Communication</h1>
-        <p class="subtitle">End-to-end encrypted voice communication</p>
+            <h1>Whisper</h1>
+            <div class="title-divider"></div>
+            <p class="subtitle">SECURE END-TO-END ENCRYPTED VOICE COMMUNICATION</p>
         </div>
 
         <div class="main-content">
@@ -1524,10 +1607,18 @@
                     <div class="panel-card">
                         <div class="panel-title">Controls</div>
                         <div style="margin-bottom: 16px;">
-                            <label style="display: block; margin-bottom: 8px; color: rgba(255, 255, 255, 0.7); font-size: 13px;">Send To:</label>
-                            <select id="recipient-select" style="width: 100%; padding: 12px 16px; border: 0.5px solid rgba(255, 255, 255, 0.1); border-radius: 10px; background: rgba(255, 255, 255, 0.04); color: rgba(255, 255, 255, 0.9); font-size: 15px; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif; cursor: pointer;" disabled>
-                                <option value="">Broadcast to All</option>
-                            </select>
+                            <label style="display: block; margin-bottom: 8px; color: rgba(255, 255, 255, 0.7); font-size: 13px;">Send To (Select Recipients):</label>
+                            <div id="recipient-list" style="max-height: 150px; overflow-y: auto; border: 0.5px solid rgba(255, 255, 255, 0.1); border-radius: 10px; background: rgba(255, 255, 255, 0.04); padding: 8px;">
+                                <div style="padding: 8px 12px; color: rgba(255, 255, 255, 0.5); font-size: 13px;">No other clients connected</div>
+                            </div>
+                            <div style="margin-top: 8px; display: flex; gap: 8px;">
+                                <button id="select-all-btn" class="button" style="flex: 1; padding: 8px; font-size: 12px; background: rgba(147, 51, 234, 0.2); border: 1px solid rgba(147, 51, 234, 0.3);" disabled>Select All</button>
+                                <button id="clear-selection-btn" class="button" style="flex: 1; padding: 8px; font-size: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1);" disabled>Clear</button>
+                            </div>
+                            <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px; color: rgba(255, 255, 255, 0.7); font-size: 13px; cursor: pointer;">
+                                <input type="checkbox" id="create-session-checkbox" style="cursor: pointer;">
+                                <span>Create session/call (invite selected recipients to join)</span>
+                            </label>
                         </div>
                         <div class="controls">
                             <button id="connect-btn" class="button button-primary">Connect to Server</button>
@@ -2179,10 +2270,12 @@
             }
         });
         
-        socket.on('server_salt', (data) => {
-            console.log('Received salt, key exchange complete');
-            // Key exchange complete - connection established
-            socket.emit('client_name', { name: clientName });
+        socket.on('server_session_keys', (data) => {
+            console.log('Received encrypted session keys from server');
+            // Server has generated session keys and encrypted them
+            // Since server generated client keys, session keys are already set up on server
+            // Just acknowledge and wait for server_connected
+            console.log('Session keys established (server-side)');
         });
         
         socket.on('server_connected', (data) => {
@@ -2192,6 +2285,10 @@
             updateStatus(`Connected as "${name}"`, 'connected');
             document.getElementById('connect-btn').textContent = 'Disconnect';
             document.getElementById('record-btn').disabled = false;
+            
+            // Save connection state to localStorage for auto-reconnect
+            localStorage.setItem('saved_client_name', name);
+            localStorage.setItem('was_connected', 'true');
             
             // Disable name input when connected
             const nameInput = document.getElementById('client-name');
@@ -2215,6 +2312,9 @@
             document.getElementById('record-btn').disabled = true;
             document.getElementById('send-btn').disabled = true;
             hasRecordedAudio = false;
+            
+            // Clear connection state from localStorage (user manually disconnected)
+            localStorage.removeItem('was_connected');
             
             // Re-enable name input when disconnected
             const nameInput = document.getElementById('client-name');
@@ -2270,23 +2370,36 @@
                 updateStatus(`Message received from another client`, 'connected');
                 
                 // Add to received messages list
-                // Store encrypted audio, but use decrypted for auto-play if available
+                // Store encrypted audio, and also store hidden decrypted audio (original before compression)
+                console.log('Received audio message:', {
+                    hasDecryptedAudio: !!data.decrypted_audio,
+                    decryptedAudioLength: data.decrypted_audio ? data.decrypted_audio.length : 0,
+                    encryptedSize: encryptedSize,
+                    originalSize: data.original_size
+                });
+                
                 const messageId = addReceivedMessage({
-                    audio: data.audio,  // This is now encrypted audio
-                    decryptedAudio: data.decrypted_audio || null,  // Decrypted audio if available
+                    audio: data.audio,  // This is encrypted audio (for display)
+                    decryptedAudio: data.decrypted_audio || null,  // Hidden: Original decompressed audio (already sent)
                     packetNumber: packetNum,
                     encryptedSize: encryptedSize,
                     decryptedSize: decryptedSize,
+                    originalSize: data.original_size || null,  // Original size before compression
                     timestamp: new Date(),
                     senderName: data.sender_name || 'Another Client',
                     isEncrypted: data.is_encrypted !== false,  // Audio is encrypted by default
-                    serverIp: data.server_ip || null
+                    serverIp: data.server_ip || null,
+                    serverMessageId: data.message_id || null  // Server's message_id for decryption lookup
                 });
                 
-                // Auto-play decrypted audio if available
+                // Auto-play decrypted audio (always available now)
                 if (data.decrypted_audio) {
                     setTimeout(() => {
-                        autoPlayReceivedAudio(messageId, data.decrypted_audio);
+                        // Auto-play the decrypted audio directly
+                        const playButton = document.getElementById(messageId + '-play');
+                        if (playButton) {
+                            playReceivedMessage(messageId, data.decrypted_audio);
+                        }
                     }, 100);
                 }
             } else {
@@ -2575,8 +2688,18 @@
             updateStatus('Disconnected', 'disconnected');
         });
 
-        // Store client name
+        // Store client name - restore from localStorage if available
         let clientName = '';
+        (function() {
+            const savedClientName = localStorage.getItem('saved_client_name');
+            if (savedClientName) {
+                const nameInput = document.getElementById('client-name');
+                if (nameInput) {
+                    nameInput.value = savedClientName;
+                    clientName = savedClientName;
+                }
+            }
+        })();
 
         // UI event handlers
         document.getElementById('connect-btn').addEventListener('click', () => {
@@ -2994,11 +3117,17 @@
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64Audio = reader.result.split(',')[1];
-                const recipientSelect = document.getElementById('recipient-select');
-                const recipient = recipientSelect && recipientSelect.value ? recipientSelect.value : null;
                 
-                if (recipient) {
-                    updateStatus(`Sending audio to ${recipient}...`, 'connected');
+                // Get selected recipients from checkboxes
+                const checkboxes = document.querySelectorAll('#recipient-list input[type="checkbox"]:checked');
+                const recipients = Array.from(checkboxes).map(cb => cb.value);
+                const createSession = document.getElementById('create-session-checkbox')?.checked || false;
+                
+                if (recipients.length > 0) {
+                    updateStatus(`Sending audio to ${recipients.length} recipient(s)...`, 'connected');
+                    if (createSession) {
+                        updateStatus(`Creating session and inviting ${recipients.length} participant(s)...`, 'connected');
+                    }
                 } else {
                     updateStatus('Broadcasting audio to all clients...', 'connected');
                 }
@@ -3006,7 +3135,8 @@
                 socket.emit('send_audio', { 
                     audio: base64Audio,
                     encrypted: isAudioEncrypted,
-                    recipient: recipient  // null means broadcast to all
+                    recipients: recipients.length > 0 ? recipients : null,  // List of recipients
+                    create_session: createSession  // Whether to create a session
                 });
                 
                 // Reset after sending
@@ -3120,10 +3250,59 @@
             showIntrusionAlert(testAlert);
         };
         
-        // Request recent alerts on connection
+        // Test function to trigger real eavesdropping detection from server
+        // Make sure it's accessible globally
+        function testEavesdropDetection() {
+            console.log('Testing eavesdropping detection...');
+            if (typeof socket === 'undefined' || !socket) {
+                alert('Socket not initialized. Please refresh the page.');
+                return;
+            }
+            if (!socket.connected) {
+                alert('Not connected to server. Please connect first.');
+                return;
+            }
+            socket.emit('test_eavesdrop_detection', {});
+            socket.once('test_result', (data) => {
+                console.log('Test result:', data);
+                if (data.status === 'success') {
+                    alert('Eavesdropping test triggered! Check the Security Alerts panel.');
+                } else {
+                    alert('Test failed: ' + data.message);
+                }
+            });
+        }
+        
+        // Expose to global scope
+        window.testEavesdropDetection = testEavesdropDetection;
+        
+        // Also add a shorter alias
+        window.testEavesdrop = testEavesdropDetection;
+        
+        // Log that the function is available
+        console.log('Eavesdropping test function loaded. Use: testEavesdropDetection() or testEavesdrop()');
+        
+        // Request recent alerts on connection and auto-reconnect if needed
         socket.on('connect', () => {
             console.log('Socket connected, requesting recent security alerts...');
             socket.emit('get_security_alerts');
+            
+            // Auto-reconnect if we were previously connected
+            const savedClientName = localStorage.getItem('saved_client_name');
+            const wasConnected = localStorage.getItem('was_connected') === 'true';
+            
+            if (wasConnected && savedClientName) {
+                console.log('Auto-reconnecting with saved client name:', savedClientName);
+                // Restore client name in input
+                const nameInput = document.getElementById('client-name');
+                if (nameInput) {
+                    nameInput.value = savedClientName;
+                }
+                // Auto-connect
+                setTimeout(() => {
+                    socket.emit('connect_to_server', { client_name: savedClientName });
+                }, 500);
+            }
         });
 
         // Functions for received messages
@@ -3142,15 +3321,27 @@
             messageItem.className = 'received-message-item new';
             const timeStr = messageData.timestamp.toLocaleTimeString();
             const sizeKB = (messageData.decryptedSize / 1024).toFixed(2);
-            const messageId = 'msg-' + Date.now();
+            // Use server's message_id if available, otherwise generate one
+            const messageId = messageData.serverMessageId || 'msg-' + Date.now();
+            // Store server's message_id on the message item for decryption lookup
+            if (messageData.serverMessageId) {
+                messageItem.setAttribute('data-server-message-id', messageData.serverMessageId);
+            }
             // Escape base64 audio for HTML - use encrypted audio for decrypt button
             const safeAudio = messageData.audio.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            // Store decrypted audio if available
+            // Store decrypted audio if available (hidden with encrypted message)
             if (messageData.decryptedAudio) {
                 messageItem.setAttribute('data-decrypted-audio', messageData.decryptedAudio);
+                console.log('✅ Stored decrypted audio on message item:', messageId, 'Size:', messageData.decryptedAudio.length, 'chars');
+            } else {
+                console.warn('⚠️ No decrypted audio in message data for:', messageId);
             }
             
             const senderName = messageData.senderName || 'Another Client';
+            // Use decrypted audio for play button if available, otherwise use encrypted (will show static)
+            const audioForPlay = messageData.decryptedAudio || safeAudio;
+            const safeAudioForPlay = audioForPlay.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            
             messageItem.innerHTML = `
                 <div class="received-message-header">
                     <div style="font-weight: 600; color: rgba(255, 255, 255, 0.9); font-size: 13px;">
@@ -3158,21 +3349,36 @@
                     </div>
                     <div class="received-message-time">${timeStr}</div>
                 </div>
-                <div class="received-message-info">
+                <div class="received-message-info" id="${messageId}-info">
                     Packet #${messageData.packetNumber} | ${sizeKB} KB | ${messageData.encryptedSize.toLocaleString()} bytes encrypted
                 </div>
                 <div class="received-message-controls">
-                    <button class="message-play-button" id="${messageId}-play" onclick="playReceivedMessage('${messageId}', '${safeAudio}')">
+                    <button class="message-play-button" id="${messageId}-play" onclick="playReceivedMessage('${messageId}', '${safeAudioForPlay}')">
                         Play
-                    </button>
-                    <button class="message-decrypt-button" id="${messageId}-decrypt" onclick="decryptReceivedMessage('${messageId}', '${safeAudio}', '${messageData.serverIp || ''}')" style="margin-left: 8px;">
-                        Decrypt
                     </button>
                 </div>
                 <audio id="${messageId}-audio" style="display: none;"></audio>
             `;
 
             messagesList.insertBefore(messageItem, messagesList.firstChild);
+            
+            // Store decrypted audio on play button and message item (always available now)
+            if (messageData.decryptedAudio) {
+                // Store on message item immediately
+                messageItem.setAttribute('data-decrypted-audio', messageData.decryptedAudio);
+                
+                // Use setTimeout to ensure DOM is ready
+                setTimeout(() => {
+                    const playButton = document.getElementById(messageId + '-play');
+                    
+                    if (playButton) {
+                        playButton.setAttribute('data-decrypted-audio', messageData.decryptedAudio);
+                        console.log('✅ Decrypted audio stored on play button:', messageId);
+                    } else {
+                        console.error('❌ Play button not found for message:', messageId);
+                    }
+                }, 50);
+            }
             
             // Remove "new" class after animation
             setTimeout(() => {
@@ -3218,27 +3424,58 @@
                 return;
             }
 
-            // Check if decrypted audio is available (from decrypt button)
-            const decryptedAudio = button.getAttribute('data-decrypted-audio');
+            // Check for decrypted audio - check button first, then message item
+            const messageItem = button.closest('.received-message-item');
+            const decryptedAudio = button.getAttribute('data-decrypted-audio') || 
+                                  messageItem?.getAttribute('data-decrypted-audio');
+            
+            // Always use decrypted audio (now always available)
             const audioToPlay = decryptedAudio || base64Audio;
             
             if (decryptedAudio) {
-                console.log('Using decrypted audio for playback');
+                console.log('✅ Using ORIGINAL decrypted audio for playback (pristine quality, no static)');
             } else {
-                console.log('Using original audio (may be encrypted)');
+                // Fallback to encrypted if decrypted not available (shouldn't happen now)
+                console.warn('⚠️ No decrypted audio found - using encrypted audio');
             }
 
             try {
-                // Decode base64 audio data (PCM uint8 format)
+                // Decode base64 audio data
                 const audioBytes = Uint8Array.from(atob(audioToPlay), c => c.charCodeAt(0));
                 
-                // Convert uint8 PCM to int16 for WAV format
-                // Original conversion: ((int16 + 32768) // 256) -> uint8
-                // Reverse: (uint8 * 256) - 32768 -> int16
-                const int16Data = new Int16Array(audioBytes.length);
-                for (let i = 0; i < audioBytes.length; i++) {
-                    // Convert uint8 [0-255] back to int16 [-32768, 32767]
-                    int16Data[i] = (audioBytes[i] * 256) - 32768;
+                // Check if this is decrypted audio (original, already decompressed to int16)
+                // Decrypted audio from server is int16 (2 bytes per sample, so size is even)
+                // Encrypted/compressed audio is uint8 (1 byte per sample)
+                const isDecrypted = !!decryptedAudio && decryptedAudio === audioToPlay;
+                
+                let int16Data;
+                if (isDecrypted && audioBytes.length % 2 === 0) {
+                    // Decrypted audio is already int16 format (original, decompressed on server)
+                    // Server sends int16 as bytes (little-endian by default in numpy)
+                    // We need to create a new buffer and copy bytes to ensure proper alignment
+                    const int16Buffer = new ArrayBuffer(audioBytes.length);
+                    const int16View = new Uint8Array(int16Buffer);
+                    int16View.set(audioBytes);
+                    // Interpret as Int16Array (little-endian)
+                    int16Data = new Int16Array(int16Buffer);
+                    console.log(`✅ Playing ORIGINAL audio (pristine quality, no static): ${audioBytes.length} bytes → ${int16Data.length} samples (int16)`);
+                    const sampleSlice = Array.from(int16Data.slice(0, Math.min(100, int16Data.length)));
+                    if (sampleSlice.length > 0) {
+                        console.log(`Audio range: min=${Math.min(...sampleSlice)} max=${Math.max(...sampleSlice)}`);
+                    }
+                } else {
+                    // This should NOT happen if decrypted audio is available
+                    // If we reach here, it means we're trying to play encrypted audio
+                    console.error('❌ ERROR: Trying to play encrypted audio! This will sound like static.');
+                    console.error('This should not happen - original audio should always be available.');
+                    updateStatus('❌ Error: No original audio available. This will sound like static.', 'disconnected');
+                    
+                    // Still try to play, but warn user
+                    int16Data = new Int16Array(audioBytes.length);
+                    for (let i = 0; i < audioBytes.length; i++) {
+                        int16Data[i] = (audioBytes[i] * 256) - 32768;
+                    }
+                    console.warn('⚠️ Playing encrypted audio - will sound like static/noise. Click Decrypt button first!');
                 }
                 
                 // Create WAV file from PCM data
@@ -3313,9 +3550,58 @@
             }
         }
         
+        function listenToDecryptedAudio(messageId) {
+            console.log('🎧 Listening to decrypted audio for message:', messageId);
+            
+            const listenButton = document.getElementById(messageId + '-listen');
+            const messageItem = listenButton?.closest('.received-message-item');
+            
+            // Get decrypted audio from button or message item
+            const decryptedAudio = listenButton?.getAttribute('data-decrypted-audio') || 
+                                 messageItem?.getAttribute('data-decrypted-audio');
+            
+            if (!decryptedAudio) {
+                console.warn('⚠️ No decrypted audio found for message:', messageId);
+                updateStatus('No decrypted audio available. Please decrypt first.', 'disconnected');
+                return;
+            }
+            
+            // Update button state
+            if (listenButton) {
+                listenButton.classList.add('playing');
+                listenButton.textContent = 'Playing...';
+            }
+            
+            // Use the same play logic but with decrypted audio
+            playReceivedMessage(messageId, decryptedAudio);
+            
+            // Reset button after audio finishes
+            const audioElement = document.getElementById(messageId + '-audio');
+            if (audioElement) {
+                audioElement.addEventListener('ended', () => {
+                    if (listenButton) {
+                        listenButton.classList.remove('playing');
+                        listenButton.textContent = 'Listen to Audio';
+                    }
+                }, { once: true });
+                
+                audioElement.addEventListener('error', () => {
+                    if (listenButton) {
+                        listenButton.classList.remove('playing');
+                        listenButton.textContent = 'Listen to Audio';
+                    }
+                }, { once: true });
+            }
+        }
+        
         function decryptReceivedMessage(messageId, base64Audio, serverIp) {
             const button = document.getElementById(messageId + '-decrypt');
             if (!button) return;
+            
+            // Get the server's message_id from the message item (if available)
+            const messageItem = button.closest('.received-message-item');
+            const serverMessageId = messageItem?.getAttribute('data-server-message-id') || messageId;
+            console.log('Decrypting with message_id:', serverMessageId, '(client messageId:', messageId + ')');
             
             if (button.classList.contains('decrypting')) {
                 button.textContent = 'Decrypt';
@@ -3324,9 +3610,12 @@
             }
             
             try {
+                // Always request decryption from server (server handles all decryption)
+                console.log('🔓 Requesting decryption from server for message:', messageId);
                 button.textContent = 'Decrypting...';
                 button.classList.add('decrypting');
                 button.disabled = true;
+                updateStatus('Requesting decryption from server...', 'connected');
                 
                 // Request decryption from server using the server IP
                 if (serverIp) {
@@ -3334,7 +3623,7 @@
                     socket.emit('decrypt_audio', {
                         audio: base64Audio,
                         server_ip: serverIp,
-                        message_id: messageId
+                        message_id: serverMessageId  // Use server's message_id for lookup
                     });
                     
                     // Wait for decryption response
@@ -3343,29 +3632,69 @@
                             socket.off('audio_decrypted', decryptHandler);
                             
                             if (data.status === 'success') {
+                                console.log('✅ Decryption successful from server:', {
+                                    messageId: messageId,
+                                    originalSize: data.original_size,
+                                    compressedSize: data.compressed_size,
+                                    decryptedAudioLength: data.decrypted_audio ? data.decrypted_audio.length : 0
+                                });
+                                
+                                // Update decrypt button to show "Decrypted" status
                                 button.textContent = 'Decrypted';
                                 button.classList.remove('decrypting');
+                                button.classList.add('decrypted');
                                 button.disabled = false;
-                                button.style.opacity = '0.6';
-                                updateStatus('Audio decrypted successfully', 'connected');
+                                button.onclick = null; // Remove onclick to prevent re-decrypting
                                 
-                                // If decrypted audio is provided, update the play button
+                                updateStatus(`✅ Audio decrypted: ${data.original_size ? (data.original_size / 1024).toFixed(2) + ' KB' : 'success'} (restored to original size)`, 'connected');
+                                
+                                // If decrypted audio is provided, show the "Listen to Audio" button
                                 if (data.decrypted_audio) {
+                                    console.log('✅ Decrypted audio received, length:', data.decrypted_audio.length, 'chars');
                                     const playButton = document.getElementById(messageId + '-play');
-                                    const audioElement = document.getElementById(messageId + '-audio');
-                                    if (playButton && audioElement) {
+                                    const listenButton = document.getElementById(messageId + '-listen');
+                                    const messageItem = button.closest('.received-message-item');
+                                    
+                                    if (playButton) {
                                         // Store decrypted audio in data attribute for reliable access
                                         playButton.setAttribute('data-decrypted-audio', data.decrypted_audio);
+                                        console.log('✅ Stored decrypted audio in playButton data attribute');
                                         // Also update onclick to use decrypted audio
                                         const safeDecrypted = data.decrypted_audio.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                                         playButton.setAttribute('onclick', `playReceivedMessage('${messageId}', '${safeDecrypted}')`);
-                                        // Store in message item for persistence
-                                        const messageItem = document.querySelector(`#${messageId}-play`)?.closest('.received-message-item');
-                                        if (messageItem) {
-                                            messageItem.setAttribute('data-decrypted-audio', data.decrypted_audio);
-                                        }
-                                        console.log('Decrypted audio stored, play button updated');
+                                        // Enable the play button
+                                        playButton.disabled = false;
+                                        playButton.textContent = 'Play';
                                     }
+                                    
+                                    if (listenButton) {
+                                        // Show the "Listen to Audio" button
+                                        listenButton.style.display = 'inline-block';
+                                        listenButton.classList.add('visible');
+                                        // Store decrypted audio for the listen button
+                                        listenButton.setAttribute('data-decrypted-audio', data.decrypted_audio);
+                                        console.log('✅ "Listen to Audio" button shown for decrypted audio');
+                                    }
+                                    
+                                    if (messageItem) {
+                                        messageItem.setAttribute('data-decrypted-audio', data.decrypted_audio);
+                                    }
+                                    
+                                    // Update message info to show decrypted size
+                                    const messageInfo = messageItem?.querySelector('.received-message-info') || 
+                                                      document.getElementById(messageId + '-info');
+                                    if (messageInfo && data.original_size) {
+                                        const originalKB = (data.original_size / 1024).toFixed(2);
+                                        // Try to get packet number from existing message info or use default
+                                        const existingText = messageInfo.textContent || '';
+                                        const packetMatch = existingText.match(/Packet #(\d+)/);
+                                        const packetNum = packetMatch ? packetMatch[1] : '?';
+                                        messageInfo.textContent = `Packet #${packetNum} | ${originalKB} KB | ${data.original_size.toLocaleString()} bytes decrypted ✅`;
+                                        messageInfo.style.color = 'rgba(52, 211, 153, 0.9)'; // Green color for decrypted
+                                    }
+                                    
+                                    console.log('✅ Decrypted audio stored. Original size:', data.original_size, 'bytes');
+                                    console.log('✅ Click "Listen to Audio" to hear the decrypted version');
                                 }
                             } else {
                                 button.textContent = 'Error';
@@ -3497,35 +3826,131 @@
             }
         });
         
-        // Update recipient dropdown with available clients
+        // Update recipient list with checkboxes
         function updateRecipientList(clientList) {
-            const recipientSelect = document.getElementById('recipient-select');
-            if (!recipientSelect) return;
+            const recipientList = document.getElementById('recipient-list');
+            const selectAllBtn = document.getElementById('select-all-btn');
+            const clearBtn = document.getElementById('clear-selection-btn');
+            if (!recipientList) return;
             
-            // Store current selection
-            const currentSelection = recipientSelect.value;
+            // Clear existing
+            recipientList.innerHTML = '';
             
-            // Clear existing options except "Broadcast to All"
-            recipientSelect.innerHTML = '<option value="">Broadcast to All</option>';
-            
-            // Add other clients (exclude self)
-            clientList.forEach(client => {
-                if (client.name !== clientName) {
-                    const option = document.createElement('option');
-                    option.value = client.name;
-                    option.textContent = client.name;
-                    recipientSelect.appendChild(option);
-                }
+            // Get currently selected recipients
+            const selectedRecipients = new Set();
+            const checkboxes = recipientList.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => {
+                if (cb.checked) selectedRecipients.add(cb.value);
             });
             
-            // Restore selection if it still exists
-            if (currentSelection && Array.from(recipientSelect.options).some(opt => opt.value === currentSelection)) {
-                recipientSelect.value = currentSelection;
+            // Add other clients (exclude self)
+            const otherClients = clientList.filter(client => client.name !== clientName);
+            
+            if (otherClients.length === 0) {
+                recipientList.innerHTML = '<div style="padding: 8px 12px; color: rgba(255, 255, 255, 0.5); font-size: 13px;">No other clients connected</div>';
+                if (selectAllBtn) selectAllBtn.disabled = true;
+                if (clearBtn) clearBtn.disabled = true;
+                return;
             }
             
-            // Enable/disable based on connection
-            recipientSelect.disabled = !isConnected || clientList.length <= 1;
+            otherClients.forEach(client => {
+                const label = document.createElement('label');
+                label.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: background 0.2s;';
+                label.onmouseover = () => label.style.background = 'rgba(255, 255, 255, 0.05)';
+                label.onmouseout = () => label.style.background = 'transparent';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = client.name;
+                checkbox.id = `recipient-${client.name}`;
+                checkbox.style.cursor = 'pointer';
+                if (selectedRecipients.has(client.name)) {
+                    checkbox.checked = true;
+                }
+                
+                const span = document.createElement('span');
+                span.textContent = client.name;
+                span.style.color = 'rgba(255, 255, 255, 0.9)';
+                span.style.fontSize = '14px';
+                
+                label.appendChild(checkbox);
+                label.appendChild(span);
+                recipientList.appendChild(label);
+            });
+            
+            // Enable/disable buttons
+            if (selectAllBtn) selectAllBtn.disabled = !isConnected || otherClients.length === 0;
+            if (clearBtn) clearBtn.disabled = !isConnected || otherClients.length === 0;
         }
+        
+        // Select all recipients
+        document.getElementById('select-all-btn')?.addEventListener('click', () => {
+            const checkboxes = document.querySelectorAll('#recipient-list input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = true);
+        });
+        
+        // Clear selection
+        document.getElementById('clear-selection-btn')?.addEventListener('click', () => {
+            const checkboxes = document.querySelectorAll('#recipient-list input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+        });
+        
+        // Session invite handler
+        socket.on('session_invite', (data) => {
+            console.log('📞 Session invite received:', data);
+            const notification = document.getElementById('session-invite-notification');
+            const hostName = document.getElementById('invite-host-name');
+            const inviteMessage = document.getElementById('invite-message');
+            const sessionIdInput = document.getElementById('invite-session-id');
+            
+            if (notification && hostName && inviteMessage && sessionIdInput) {
+                hostName.textContent = data.host_name || 'Unknown';
+                inviteMessage.textContent = data.message || 'wants to start a call with you';
+                sessionIdInput.value = data.session_id || '';
+                notification.style.display = 'block';
+            }
+        });
+        
+        // Accept invite button
+        document.getElementById('accept-invite-btn')?.addEventListener('click', () => {
+            const sessionId = document.getElementById('invite-session-id')?.value;
+            if (sessionId) {
+                socket.emit('accept_session', { session_id: sessionId });
+                document.getElementById('session-invite-notification').style.display = 'none';
+                updateStatus('✅ Joined the call! You will now receive clean audio.', 'connected');
+            }
+        });
+        
+        // Decline invite button
+        document.getElementById('decline-invite-btn')?.addEventListener('click', () => {
+            const sessionId = document.getElementById('invite-session-id')?.value;
+            if (sessionId) {
+                socket.emit('decline_session', { session_id: sessionId });
+                document.getElementById('session-invite-notification').style.display = 'none';
+            }
+        });
+        
+        // Session joined handler
+        socket.on('session_joined', (data) => {
+            console.log('✅ Joined session:', data);
+            updateStatus(`✅ Joined call with ${data.participants?.length || 0} participant(s)`, 'connected');
+        });
+        
+        // Session updated handler
+        socket.on('session_updated', (data) => {
+            console.log('📞 Session updated:', data);
+            if (data.joined) {
+                updateStatus(`${data.joined} joined the call`, 'connected');
+            } else if (data.left) {
+                updateStatus(`${data.left} left the call`, 'connected');
+            }
+        });
+        
+        // Session created handler
+        socket.on('session_created', (data) => {
+            console.log('✅ Session created:', data);
+            updateStatus(`✅ Session created! Invited ${data.invited?.length || 0} participant(s)`, 'connected');
+        });
         
         // Request client count when socket connects (if already connected to server)
         socket.on('connect', () => {
