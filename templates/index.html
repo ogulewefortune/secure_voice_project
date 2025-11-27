@@ -2120,33 +2120,39 @@
         });
         
         socket.on('server_info', (data) => {
-            // If server is integrated, hide host/port fields and auto-connect
+            // Auto-fill server info but keep fields visible and editable
+            const serverHostInput = document.getElementById('server-host');
+            const serverPortInput = document.getElementById('server-port');
+            
             if (data && data.integrated) {
-                const serverHostInput = document.getElementById('server-host');
-                const serverPortInput = document.getElementById('server-port');
-                const serverHostLabel = document.querySelector('label[for="server-host"]');
-                const serverPortLabel = document.querySelector('label[for="server-port"]');
-                
-                // Hide host/port fields since they're not needed
+                // Integrated server - auto-fill with server IP for connecting from other devices
                 if (serverHostInput) {
-                    serverHostInput.style.display = 'none';
-                    serverHostInput.value = 'localhost'; // Set to localhost for integrated server
+                    // If field is empty, suggest the server IP (for connecting from other devices)
+                    if (!serverHostInput.value) {
+                        // Check if we're on the same machine
+                        const isLocalhost = window.location.hostname === 'localhost' || 
+                                          window.location.hostname === '127.0.0.1';
+                        if (isLocalhost) {
+                            serverHostInput.value = 'localhost';
+                        } else if (data.server_ip) {
+                            // Pre-fill with server IP for connecting from other devices
+                            serverHostInput.value = data.server_ip;
+                        }
+                    }
                 }
-                if (serverPortInput) {
-                    serverPortInput.style.display = 'none';
+                if (serverPortInput && !serverPortInput.value) {
                     serverPortInput.value = data.port || 8888;
                 }
-                if (serverHostLabel) serverHostLabel.style.display = 'none';
-                if (serverPortLabel) serverPortLabel.style.display = 'none';
-                
-                console.log('Server is integrated - host/port fields hidden');
+                console.log('Server is integrated - fields auto-filled but editable');
             } else if (data && data.server_ip) {
-                // Legacy mode - show hint
-                const serverHostInput = document.getElementById('server-host');
+                // Show server IP as hint/placeholder
                 if (serverHostInput) {
-                    if (serverHostInput.value === '' || serverHostInput.value === 'localhost') {
+                    if (!serverHostInput.value || serverHostInput.value === 'localhost') {
                         serverHostInput.placeholder = `Enter server IP (e.g., ${data.server_ip})`;
                     }
+                }
+                if (serverPortInput && !serverPortInput.value) {
+                    serverPortInput.value = data.port || 8888;
                 }
             }
         });

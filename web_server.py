@@ -399,9 +399,21 @@ def broadcast_client_count_update():
 def handle_connect_to_server(data):
     """Handle request to connect to voice server."""
     try:
-        # Always connect to localhost since voice server is integrated
-        host = 'localhost'  # Integrated server runs locally
-        port = DEFAULT_PORT
+        # Get host and port from user input, or use defaults
+        # Since voice server is integrated, we connect to localhost from the server side
+        # But allow user to specify host for clarity (they might enter server IP)
+        user_host = data.get('host', '').strip()
+        user_port = data.get('port', DEFAULT_PORT)
+        
+        # If user entered the server's IP or it's empty, use localhost (integrated server)
+        # Otherwise, use what they entered (though it should still work since server is local)
+        server_ip = get_local_ip()
+        if not user_host or user_host == server_ip or user_host == 'localhost' or user_host == '127.0.0.1':
+            host = 'localhost'  # Integrated server runs locally
+        else:
+            host = user_host  # Use what user entered (may be server IP from their perspective)
+        
+        port = int(user_port) if user_port else DEFAULT_PORT
         client_name = data.get('client_name', f"Client_{request.sid[:8]}")
         
         # Make sure integrated voice server is running
