@@ -2242,19 +2242,25 @@
                 updateStatus(`Message received from another client`, 'connected');
                 
                 // Add to received messages list
-                addReceivedMessage({
-                    audio: data.audio,
+                // Store encrypted audio, but use decrypted for auto-play if available
+                const messageId = addReceivedMessage({
+                    audio: data.audio,  // This is now encrypted audio
+                    decryptedAudio: data.decrypted_audio || null,  // Decrypted audio if available
                     packetNumber: packetNum,
                     encryptedSize: encryptedSize,
                     decryptedSize: decryptedSize,
                     timestamp: new Date(),
                     senderName: data.sender_name || 'Another Client',
-                    isEncrypted: data.is_encrypted || false,
+                    isEncrypted: data.is_encrypted !== false,  // Audio is encrypted by default
                     serverIp: data.server_ip || null
                 });
                 
-                // Auto-play received audio (optional - you can remove this if you want manual playback)
-                // playAudio(data.audio);
+                // Auto-play decrypted audio if available
+                if (data.decrypted_audio) {
+                    setTimeout(() => {
+                        autoPlayReceivedAudio(messageId, data.decrypted_audio);
+                    }, 100);
+                }
             } else {
                 updateStatus('Audio received but integrity check failed', 'disconnected');
             }
@@ -3108,8 +3114,12 @@
             const timeStr = messageData.timestamp.toLocaleTimeString();
             const sizeKB = (messageData.decryptedSize / 1024).toFixed(2);
             const messageId = 'msg-' + Date.now();
-            // Escape base64 audio for HTML
+            // Escape base64 audio for HTML - use encrypted audio for decrypt button
             const safeAudio = messageData.audio.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            // Store decrypted audio if available
+            if (messageData.decryptedAudio) {
+                messageItem.setAttribute('data-decrypted-audio', messageData.decryptedAudio);
+            }
             
             const senderName = messageData.senderName || 'Another Client';
             messageItem.innerHTML = `
@@ -3159,6 +3169,9 @@
                     tag: 'message-received'
                 });
             }
+            
+            // Return messageId for auto-play
+            return messageId;
         }
 
         function playReceivedMessage(messageId, base64Audio) {
@@ -3176,9 +3189,19 @@
                 return;
             }
 
+            // Check if decrypted audio is available (from decrypt button)
+            const decryptedAudio = button.getAttribute('data-decrypted-audio');
+            const audioToPlay = decryptedAudio || base64Audio;
+            
+            if (decryptedAudio) {
+                console.log('Using decrypted audio for playback');
+            } else {
+                console.log('Using original audio (may be encrypted)');
+            }
+
             try {
                 // Decode base64 audio data (PCM uint8 format)
-                const audioBytes = Uint8Array.from(atob(base64Audio), c => c.charCodeAt(0));
+                const audioBytes = Uint8Array.from(atob(audioToPlay), c => c.charCodeAt(0));
                 
                 // Convert uint8 PCM to int16 for WAV format
                 // Original conversion: ((int16 + 32768) // 256) -> uint8
@@ -3300,10 +3323,19 @@
                                 // If decrypted audio is provided, update the play button
                                 if (data.decrypted_audio) {
                                     const playButton = document.getElementById(messageId + '-play');
-                                    if (playButton) {
-                                        // Update the onclick to use decrypted audio
+                                    const audioElement = document.getElementById(messageId + '-audio');
+                                    if (playButton && audioElement) {
+                                        // Store decrypted audio in data attribute for reliable access
+                                        playButton.setAttribute('data-decrypted-audio', data.decrypted_audio);
+                                        // Also update onclick to use decrypted audio
                                         const safeDecrypted = data.decrypted_audio.replace(/'/g, "\\'").replace(/"/g, '&quot;');
                                         playButton.setAttribute('onclick', `playReceivedMessage('${messageId}', '${safeDecrypted}')`);
+                                        // Store in message item for persistence
+                                        const messageItem = document.querySelector(`#${messageId}-play`)?.closest('.received-message-item');
+                                        if (messageItem) {
+                                            messageItem.setAttribute('data-decrypted-audio', data.decrypted_audio);
+                                        }
+                                        console.log('Decrypted audio stored, play button updated');
                                     }
                                 }
                             } else {

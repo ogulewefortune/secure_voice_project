@@ -306,26 +306,29 @@ class WebVoiceClient:
                         audio_size = len(audio_data)
                         log(f"[Web Client {self.socket_id[:8]}] Integrity verified ({audio_size} bytes)", "SECURITY")
                         
-                        # Encode to base64 for web transmission
-                        audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+                        # Send ENCRYPTED audio to web client (not decrypted)
+                        # This allows the decrypt button to actually decrypt it
+                        encrypted_audio_base64 = base64.b64encode(encrypted_data).decode('utf-8')
+                        decrypted_audio_base64 = base64.b64encode(audio_data).decode('utf-8')
                         
                         # Get server IP for decryption button
                         server_ip = get_local_ip()
                         
                         # Send to web client via SocketIO with packet information
-                        # Note: We'll try to get sender name from voice server if possible
+                        # Send encrypted audio so user can decrypt it with the button
                         socketio.emit('audio_received', {
-                            'audio': audio_base64,
+                            'audio': encrypted_audio_base64,  # Send encrypted audio
+                            'decrypted_audio': decrypted_audio_base64,  # Also send decrypted for auto-play
                             'format': 'pcm',
                             'verified': True,
                             'packet_number': self.audio_packet_count,
                             'encrypted_size': encrypted_size,
                             'decrypted_size': decrypted_size,
                             'sender_name': 'Another Client',  # Will be updated when we track sender names
-                            'is_encrypted': False,  # Already decrypted by server
+                            'is_encrypted': True,  # Audio is encrypted - needs decryption
                             'server_ip': server_ip  # Server IP for decryption button
                         }, room=self.socket_id)
-                        log(f"[Web Client {self.socket_id[:8]}] Forwarded audio to web client", "SEND")
+                        log(f"[Web Client {self.socket_id[:8]}] Forwarded encrypted audio to web client (can be decrypted)", "SEND")
                     except Exception as e:
                         log(f"[Web Client {self.socket_id[:8]}] Error processing received audio: {e}", "ERROR")
                         socketio.emit('audio_error', {
@@ -566,35 +569,61 @@ def handle_get_security_stats():
 
 @socketio.on('decrypt_audio')
 def handle_decrypt_audio(data):
-    """Handle request to decrypt audio (for UI purposes - audio is already decrypted)."""
+    """Handle request to decrypt encrypted audio."""
     try:
         message_id = data.get('message_id')
-        audio_base64 = data.get('audio')
+        encrypted_audio_base64 = data.get('audio')
         server_ip = data.get('server_ip')
         
         log(f"[{request.sid[:8]}] Decrypt audio request for message {message_id} from server {server_ip}", "INFO")
         
-        # Note: Audio is already decrypted by the server before sending to web client
-        # This handler is mainly for UI feedback and consistency
-        # The audio received by web clients is already in decrypted PCM format
-        
         if request.sid in web_clients:
             client = web_clients[request.sid]
-            if client.connected:
-                # Audio is already decrypted, just return it
-                emit('audio_decrypted', {
-                    'message_id': message_id,
-                    'decrypted_audio': audio_base64,  # Already decrypted
-                    'status': 'success',
-                    'note': 'Audio was already decrypted by server',
-                    'server_ip': server_ip
-                })
-                log(f"[{request.sid[:8]}] Audio decryption confirmed (already decrypted) for server {server_ip}", "INFO")
+            if client.connected and client.aes_key:
+                try:
+                    # Decode the encrypted audio
+                    encrypted_audio = base64.b64decode(encrypted_audio_base64)
+                    
+                    # Decrypt using client's AES key
+                    encrypted_audio_data = decrypt_data(encrypted_audio, client.aes_key)
+                    
+                    # Verify integrity
+                    integrity_key = client.aes_key[:16]
+                    is_valid, audio_data = verify_integrity(encrypted_audio_data, integrity_key)
+                    
+                    if not is_valid:
+                        log(f"[{request.sid[:8]}] Integrity check failed during decryption", "WARNING")
+                        emit('audio_decrypted', {
+                            'message_id': message_id,
+                            'status': 'error',
+                            'message': 'Integrity check failed - audio may have been tampered with'
+                        })
+                        return
+                    
+                    # Encode decrypted audio to base64
+                    decrypted_audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+                    
+                    emit('audio_decrypted', {
+                        'message_id': message_id,
+                        'decrypted_audio': decrypted_audio_base64,
+                        'status': 'success',
+                        'note': 'Audio decrypted successfully',
+                        'server_ip': server_ip
+                    })
+                    log(f"[{request.sid[:8]}] Audio decrypted successfully for message {message_id}", "INFO")
+                except Exception as decrypt_error:
+                    error_msg = str(decrypt_error)
+                    log(f"[{request.sid[:8]}] Decryption error: {error_msg}", "ERROR")
+                    emit('audio_decrypted', {
+                        'message_id': message_id,
+                        'status': 'error',
+                        'message': f'Decryption failed: {error_msg}'
+                    })
             else:
                 emit('audio_decrypted', {
                     'message_id': message_id,
                     'status': 'error',
-                    'message': 'Not connected to voice server'
+                    'message': 'Not connected to voice server or no encryption key'
                 })
         else:
             emit('audio_decrypted', {
