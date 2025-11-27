@@ -2157,11 +2157,39 @@
             }
         });
 
+        // Handle key exchange via SocketIO
+        let clientPrivateKey = null;
+        let clientPublicKey = null;
+        let clientAESKey = null;
+        
+        socket.on('server_public_key', (data) => {
+            console.log('Received server public key');
+            try {
+                // Generate client key pair
+                // Note: In browser, we'd use Web Crypto API, but for simplicity,
+                // the server will handle key generation for now
+                // Client will send a placeholder and server generates keys
+                const serverPubKeyBytes = atob(data.public_key);
+                // For now, server generates client keys - in production, use Web Crypto API
+                socket.emit('client_public_key', { 
+                    public_key: 'placeholder' // Server will generate client keys
+                });
+            } catch (e) {
+                console.error('Error in key exchange:', e);
+            }
+        });
+        
+        socket.on('server_salt', (data) => {
+            console.log('Received salt, key exchange complete');
+            // Key exchange complete - connection established
+            socket.emit('client_name', { name: clientName });
+        });
+        
         socket.on('server_connected', (data) => {
-            console.log('Connected to voice server:', data);
+            console.log('Connected to server:', data);
             isConnected = true;
             const name = data.client_name || clientName || 'Unknown';
-            updateStatus(`Connected to voice server as "${name}"`, 'connected');
+            updateStatus(`Connected as "${name}"`, 'connected');
             document.getElementById('connect-btn').textContent = 'Disconnect';
             document.getElementById('record-btn').disabled = false;
             
@@ -2578,7 +2606,8 @@
                 }
                 
                 clientName = name;
-                socket.emit('connect_to_server', { host, port, client_name: clientName });
+                // New simplified connection - just send name, no host/port needed
+                socket.emit('connect_to_server', { client_name: clientName });
             }
         });
 

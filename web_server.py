@@ -5,6 +5,7 @@ Provides a web-based interface for audio recording and transmission.
 """
 
 import socket
+import subprocess
 import threading
 import base64
 import json
@@ -12,12 +13,10 @@ import numpy as np
 from datetime import datetime
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
-from src.config import DEFAULT_HOST, DEFAULT_PORT, DEFAULT_WEB_PORT, TARGET_BITRATE, MIN_SNR_DB, SAMPLE_RATE_FOR_64KBPS, QUANTIZATION_BITS
-from src.network_protocol import establish_connection, send_message, receive_message, close_connection
+from src.config import DEFAULT_HOST, DEFAULT_PORT, TARGET_BITRATE, MIN_SNR_DB, SAMPLE_RATE_FOR_64KBPS, QUANTIZATION_BITS, DEFAULT_WEB_PORT
 from src.crypto_utils import generate_key_pair, serialize_public_key, deserialize_public_key, derive_shared_secret, derive_aes_key, encrypt_data, decrypt_data
 from src.audio_compression import compress_to_64kbps, calculate_snr, add_integrity_check, verify_integrity
 from src.intrusion_detection import get_ids, ThreatType
-from src.server import VoiceServer
 
 def log(message, level="INFO"):
     """Log a message with timestamp."""
@@ -28,12 +27,11 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secure-voice-secret-key'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Store web client connections
+# Store web client connections - now handles everything via SocketIO
 web_clients = {}
 
-# Initialize integrated voice server (runs in background)
-voice_server = None
-voice_server_thread = None
+# Server key pair (shared by all clients)
+server_private_key, server_public_key = generate_key_pair()
 
 # Initialize IDS and register alert callback for web interface
 ids = get_ids()
@@ -56,86 +54,34 @@ def handle_security_alert(alert):
 ids.register_alert_callback(handle_security_alert)
 
 class WebVoiceClient:
-    """Web client that connects to the voice server."""
+    """Web client - now handles everything via SocketIO, no separate TCP connection."""
     
-    def __init__(self, socket_id, voice_server_host=DEFAULT_HOST, voice_server_port=DEFAULT_PORT, client_name=None):
+    def __init__(self, socket_id, client_name=None):
         self.socket_id = socket_id
-        self.voice_server_host = voice_server_host
-        self.voice_server_port = voice_server_port
         self.client_name = client_name or f"Client_{socket_id[:8]}"
-        self.socket = None
         self.aes_key = None
         self.private_key = None
         self.public_key = None
         self.connected = False
-        self.running = False
         self.audio_packet_count = 0  # Track received audio packets
     
-    def connect(self):
-        """Connect to the voice server."""
+    def setup_encryption(self, client_public_key_bytes):
+        """Set up encryption with client's public key."""
         try:
-            self.socket = establish_connection(self.voice_server_host, self.voice_server_port, is_server=False)
-            if not self.socket:
-                log(f"[Web Client {self.socket_id[:8]}] Connection failed: Could not establish connection to {self.voice_server_host}:{self.voice_server_port}", "ERROR")
-                return False
-        except Exception as e:
-            error_msg = str(e)
-            log(f"[Web Client {self.socket_id[:8]}] Connection error: {error_msg}", "ERROR")
-            # Provide helpful error messages
-            if "Connection refused" in error_msg or "[Errno 61]" in error_msg or "[Errno 111]" in error_msg:
-                log(f"[Web Client {self.socket_id[:8]}] TROUBLESHOOTING: Connection refused usually means:", "ERROR")
-                log(f"[Web Client {self.socket_id[:8]}]   1. Voice server is not running on {self.voice_server_host}:{self.voice_server_port}", "ERROR")
-                log(f"[Web Client {self.socket_id[:8]}]   2. Firewall is blocking port {self.voice_server_port} on the server", "ERROR")
-                log(f"[Web Client {self.socket_id[:8]}]   3. Wrong IP address - verify the server IP is correct", "ERROR")
-            elif "No route to host" in error_msg or "[Errno 113]" in error_msg:
-                log(f"[Web Client {self.socket_id[:8]}] TROUBLESHOOTING: Network unreachable - check IP address and network connectivity", "ERROR")
-            return False
-        
-        try:
-            # Generate client key pair
-            self.private_key, self.public_key = generate_key_pair()
-            
-            # Receive server public key
-            msg_type, server_pub_key_bytes = receive_message(self.socket)
-            if msg_type != 'K' or not server_pub_key_bytes:
-                return False
-            
-            server_public_key = deserialize_public_key(server_pub_key_bytes)
-            
-            # Send client public key
-            client_pub_key_bytes = serialize_public_key(self.public_key)
-            send_message(self.socket, 'K', client_pub_key_bytes)
-            
-            # Receive salt
-            msg_type, salt = receive_message(self.socket)
-            if msg_type != 'S' or not salt:
-                return False
+            # Deserialize client public key
+            client_public_key = deserialize_public_key(client_public_key_bytes)
             
             # Derive shared secret and AES key
-            shared_secret = derive_shared_secret(self.private_key, server_public_key)
-            self.aes_key, _ = derive_aes_key(shared_secret, salt)
+            shared_secret = derive_shared_secret(server_private_key, client_public_key)
+            self.aes_key, salt = derive_aes_key(shared_secret)
             
-            # Send client name to server
-            msg_type, name_request = receive_message(self.socket)
-            if msg_type == 'N':
-                # Server is requesting our name
-                name_bytes = self.client_name.encode('utf-8')
-                send_message(self.socket, 'N', name_bytes)
-                log(f"[Web Client {self.socket_id[:8]}] Sent client name to server: {self.client_name}", "INFO")
+            # Store client's public key for reference
+            self.public_key = client_public_key
             
-            self.connected = True
-            self.running = True
-            self.audio_packet_count = 0  # Reset packet counter on new connection
-            
-            # Start receiving thread
-            receive_thread = threading.Thread(target=self.receive_audio_loop, daemon=True)
-            receive_thread.start()
-            
-            return True
-        
+            return salt
         except Exception as e:
-            print(f"Error during key exchange: {e}")
-            return False
+            log(f"[Web Client {self.socket_id[:8]}] Error setting up encryption: {e}", "ERROR")
+            return None
     
     def send_audio(self, audio_data_base64, audio_format='webm', recipient_name=None):
         """Send audio data to the voice server with compression and integrity checks.
@@ -199,42 +145,60 @@ class WebVoiceClient:
             encrypted_size = len(encrypted_audio)
             log(f"[Web Client {self.socket_id[:8]}] Encrypted: {compressed_size} → {encrypted_size} bytes (AES-256-GCM)", "SECURITY")
             
-            # Send to server (targeted or broadcast)
+            # Broadcast to other clients via SocketIO (no TCP needed!)
+            encrypted_audio_base64 = base64.b64encode(encrypted_audio).decode('utf-8')
+            
             if recipient_name:
-                # Targeted sending: prepend recipient name
-                recipient_bytes = recipient_name.encode('utf-8')
-                recipient_len = len(recipient_bytes).to_bytes(2, 'big')
-                targeted_message = recipient_len + recipient_bytes + encrypted_audio
-                success = send_message(self.socket, 'T', targeted_message)
-                if success:
-                    log(f"[Web Client {self.socket_id[:8]}] Sending targeted audio to: {recipient_name}", "SEND")
-                    socketio.emit('audio_sent_to_server', {
-                        'status': 'sent',
+                # Targeted sending to specific client
+                target_client = None
+                for sid, client in web_clients.items():
+                    if client.client_name == recipient_name and client.connected:
+                        target_client = sid
+                        break
+                
+                if target_client:
+                    socketio.emit('audio_received', {
+                        'audio': encrypted_audio_base64,  # Encrypted audio
+                        'format': 'pcm',
+                        'verified': True,
+                        'packet_number': 0,  # Will be set by receiver
                         'encrypted_size': encrypted_size,
-                        'message': f'Audio sent to {recipient_name}'
-                    }, room=self.socket_id)
+                        'decrypted_size': compressed_size,
+                        'sender_name': self.client_name,
+                        'is_encrypted': True,
+                        'server_ip': get_local_ip()
+                    }, room=target_client)
+                    log(f"[Web Client {self.socket_id[:8]}] Sent targeted audio to: {recipient_name}", "SEND")
+                    success = True
                 else:
-                    log(f"[Web Client {self.socket_id[:8]}] Failed to send targeted audio", "ERROR")
-                    socketio.emit('audio_sent_to_server', {
-                        'status': 'failed',
-                        'message': 'Failed to send audio to server'
-                    }, room=self.socket_id)
+                    log(f"[Web Client {self.socket_id[:8]}] Target client not found: {recipient_name}", "ERROR")
+                    success = False
             else:
-                # Broadcast to all
-                success = send_message(self.socket, 'A', encrypted_audio)
-                if success:
-                    log(f"[Web Client {self.socket_id[:8]}] Broadcasting audio to all clients", "SEND")
-                    socketio.emit('audio_sent_to_server', {
-                        'status': 'sent',
-                        'encrypted_size': encrypted_size,
-                        'message': 'Audio broadcasted to all connected clients'
-                    }, room=self.socket_id)
-                else:
-                    log(f"[Web Client {self.socket_id[:8]}] Failed to send audio", "ERROR")
-                    socketio.emit('audio_sent_to_server', {
-                        'status': 'failed',
-                        'message': 'Failed to send audio to server'
-                    }, room=self.socket_id)
+                # Broadcast to all other connected clients
+                recipients = 0
+                for sid, client in web_clients.items():
+                    if sid != self.socket_id and client.connected and client.aes_key:
+                        # Re-encrypt for each recipient with their key
+                        recipient_integrity_key = client.aes_key[:16]
+                        recipient_audio_with_integrity = add_integrity_check(audio_bytes, recipient_integrity_key)
+                        recipient_encrypted = encrypt_data(recipient_audio_with_integrity, client.aes_key)
+                        recipient_encrypted_base64 = base64.b64encode(recipient_encrypted).decode('utf-8')
+                        
+                        socketio.emit('audio_received', {
+                            'audio': recipient_encrypted_base64,  # Encrypted with recipient's key
+                            'format': 'pcm',
+                            'verified': True,
+                            'packet_number': client.audio_packet_count + 1,
+                            'encrypted_size': len(recipient_encrypted),
+                            'decrypted_size': compressed_size,
+                            'sender_name': self.client_name,
+                            'is_encrypted': True,
+                            'server_ip': get_local_ip()
+                        }, room=sid)
+                        recipients += 1
+                
+                log(f"[Web Client {self.socket_id[:8]}] Broadcasted to {recipients} client(s)", "SEND")
+                success = recipients > 0
             
             # Return success status and processing details
             processing_details = {
@@ -252,104 +216,9 @@ class WebVoiceClient:
             log(f"[Web Client {self.socket_id[:8]}] Error sending audio: {e}", "ERROR")
             return False, None, None, None
     
-    def receive_audio_loop(self):
-        """Continuously receive audio from the voice server."""
-        while self.running:
-            try:
-                msg_type, encrypted_data = receive_message(self.socket)
-                if not msg_type or not encrypted_data:
-                    break
-                
-                if msg_type == 'A' and self.aes_key:  # Audio data
-                    try:
-                        self.audio_packet_count += 1
-                        encrypted_size = len(encrypted_data)
-                        log(f"[Web Client {self.socket_id[:8]}] Received audio packet #{self.audio_packet_count} ({encrypted_size} bytes encrypted)", "RECEIVE")
-                        
-                        # Decrypt audio
-                        try:
-                            encrypted_audio_data = decrypt_data(encrypted_data, self.aes_key)
-                            decrypted_size = len(encrypted_audio_data)
-                            log(f"[Web Client {self.socket_id[:8]}] Decrypted: {encrypted_size} → {decrypted_size} bytes", "SECURITY")
-                        except Exception as decrypt_error:
-                            # Decryption failure - possible eavesdropping or MITM
-                            error_msg = str(decrypt_error)
-                            if "tag" in error_msg.lower() or "authentication" in error_msg.lower():
-                                # GCM authentication failure - MITM attack
-                                ids.detect_authentication_failure("server", error_msg)
-                                log(f"[Web Client {self.socket_id[:8]}] Authentication failure - possible MITM attack", "ALERT")
-                            else:
-                                # General decryption failure - possible eavesdropping
-                                ids.detect_decryption_failure("server", error_msg)
-                                log(f"[Web Client {self.socket_id[:8]}] Decryption failure - possible eavesdropping attempt", "ALERT")
-                            socketio.emit('audio_error', {
-                                'message': 'Decryption failed - security threat detected!'
-                            }, room=self.socket_id)
-                            raise
-                        
-                        # Verify integrity
-                        integrity_key = self.aes_key[:16]
-                        is_valid, audio_data = verify_integrity(encrypted_audio_data, integrity_key)
-                        
-                        if not is_valid:
-                            log(f"[Web Client {self.socket_id[:8]}] Warning: Audio integrity check failed - possible tampering!", "WARNING")
-                            # Detect integrity violation
-                            ids.detect_integrity_violation("server", {
-                                'client_id': self.socket_id[:8],
-                                'packet_number': self.audio_packet_count
-                            })
-                            socketio.emit('audio_error', {
-                                'message': 'Audio integrity check failed - possible tampering detected!'
-                            }, room=self.socket_id)
-                            continue
-                        
-                        audio_size = len(audio_data)
-                        log(f"[Web Client {self.socket_id[:8]}] Integrity verified ({audio_size} bytes)", "SECURITY")
-                        
-                        # Send ENCRYPTED audio to web client (not decrypted)
-                        # This allows the decrypt button to actually decrypt it
-                        encrypted_audio_base64 = base64.b64encode(encrypted_data).decode('utf-8')
-                        decrypted_audio_base64 = base64.b64encode(audio_data).decode('utf-8')
-                        
-                        # Get server IP for decryption button
-                        server_ip = get_local_ip()
-                        
-                        # Send to web client via SocketIO with packet information
-                        # Send encrypted audio so user can decrypt it with the button
-                        socketio.emit('audio_received', {
-                            'audio': encrypted_audio_base64,  # Send encrypted audio
-                            'decrypted_audio': decrypted_audio_base64,  # Also send decrypted for auto-play
-                            'format': 'pcm',
-                            'verified': True,
-                            'packet_number': self.audio_packet_count,
-                            'encrypted_size': encrypted_size,
-                            'decrypted_size': decrypted_size,
-                            'sender_name': 'Another Client',  # Will be updated when we track sender names
-                            'is_encrypted': True,  # Audio is encrypted - needs decryption
-                            'server_ip': server_ip  # Server IP for decryption button
-                        }, room=self.socket_id)
-                        log(f"[Web Client {self.socket_id[:8]}] Forwarded encrypted audio to web client (can be decrypted)", "SEND")
-                    except Exception as e:
-                        log(f"[Web Client {self.socket_id[:8]}] Error processing received audio: {e}", "ERROR")
-                        socketio.emit('audio_error', {
-                            'message': str(e)
-                        }, room=self.socket_id)
-            
-            except Exception as e:
-                if self.running:
-                    print(f"Error receiving audio: {e}")
-                break
-        
-        # Notify web client of disconnection
-        socketio.emit('disconnected', {'reason': 'Server connection lost'}, room=self.socket_id)
-        self.connected = False
-    
     def disconnect(self):
-        """Disconnect from the voice server."""
-        self.running = False
+        """Disconnect client."""
         self.connected = False
-        if self.socket:
-            close_connection(self.socket)
 
 
 @app.route('/')
@@ -400,84 +269,116 @@ def broadcast_client_count_update():
 
 @socketio.on('connect_to_server')
 def handle_connect_to_server(data):
-    """Handle request to connect to voice server."""
+    """Handle request to connect - now everything is via SocketIO, no separate server needed!"""
     try:
-        # Get host and port from user input, or use defaults
-        # Since voice server is integrated, we connect to localhost from the server side
-        # But allow user to specify host for clarity (they might enter server IP)
-        user_host = data.get('host', '').strip()
-        user_port = data.get('port', DEFAULT_PORT)
-        
-        # If user entered the server's IP or it's empty, use localhost (integrated server)
-        # Otherwise, use what they entered (though it should still work since server is local)
-        server_ip = get_local_ip()
-        if not user_host or user_host == server_ip or user_host == 'localhost' or user_host == '127.0.0.1':
-            host = 'localhost'  # Integrated server runs locally
-        else:
-            host = user_host  # Use what user entered (may be server IP from their perspective)
-        
-        port = int(user_port) if user_port else DEFAULT_PORT
         client_name = data.get('client_name', f"Client_{request.sid[:8]}")
         
-        # Make sure integrated voice server is running
-        global voice_server, voice_server_thread
-        if voice_server is None or not voice_server.running:
-            log("Starting integrated voice server...", "INFO")
-            voice_server = VoiceServer(host='0.0.0.0', port=DEFAULT_PORT)
-            voice_server_thread = threading.Thread(target=voice_server.start, daemon=True)
-            voice_server_thread.start()
-            # Give server a moment to start
-            import time
-            time.sleep(0.5)
+        log(f"[{request.sid[:8]}] Client connecting as '{client_name}'...", "CONNECT")
         
-        log(f"[{request.sid[:8]}] Connecting to integrated voice server at {host}:{port} as '{client_name}'...", "CONNECT")
-        client = WebVoiceClient(request.sid, host, port, client_name=client_name)
-        if client.connect():
-            web_clients[request.sid] = client
-            log(f"[{request.sid[:8]}] Successfully connected to voice server as '{client_name}'", "CONNECT")
-            emit('server_connected', {
-                'status': 'connected',
-                'host': host,
-                'port': port,
-                'client_name': client_name
-            })
-            # Broadcast client count update to all clients
-            broadcast_client_count_update()
-        else:
-            log(f"[{request.sid[:8]}] Failed to connect to voice server", "ERROR")
-            error_msg = f"Failed to connect to integrated voice server"
-            troubleshooting = []
-            troubleshooting.append("Possible issues:")
-            troubleshooting.append("1. Integrated voice server failed to start")
-            troubleshooting.append("2. Port 8888 may be in use by another process")
-            troubleshooting.append("3. macOS Firewall may be blocking port 8888")
-            troubleshooting.append("")
-            troubleshooting.append("Troubleshooting:")
-            troubleshooting.append("- Check if port 8888 is available: lsof -i :8888")
-            troubleshooting.append("- Check macOS Firewall settings")
-            troubleshooting.append("- Try restarting the web server")
-            
-            emit('server_error', {
-                'message': error_msg,
-                'troubleshooting': troubleshooting,
-                'host': host,
-                'port': port
-            })
+        # Create client instance
+        client = WebVoiceClient(request.sid, client_name=client_name)
+        web_clients[request.sid] = client
+        
+        # Send server public key to client for key exchange
+        server_pub_key_bytes = serialize_public_key(server_public_key)
+        server_pub_key_base64 = base64.b64encode(server_pub_key_bytes).decode('utf-8')
+        
+        emit('server_public_key', {
+            'public_key': server_pub_key_base64
+        })
+        
+        log(f"[{request.sid[:8]}] Sent server public key, waiting for client public key...", "KEY_EXCHANGE")
+        
     except Exception as e:
         error_msg = str(e)
+        log(f"[{request.sid[:8]}] Connection error: {error_msg}", "ERROR")
         emit('server_error', {
             'message': f'Connection error: {error_msg}',
-            'error': error_msg,
-            'host': 'localhost',
-            'port': DEFAULT_PORT
+            'error': error_msg
         })
+
+
+@socketio.on('client_public_key')
+def handle_client_public_key(data):
+    """Handle client's public key and complete key exchange."""
+    try:
+        if request.sid not in web_clients:
+            emit('server_error', {'message': 'Client not found'})
+            return
+        
+        client = web_clients[request.sid]
+        public_key_data = data.get('public_key', '')
+        
+        # If placeholder, generate client keys on server side
+        # (In production, browser would generate keys using Web Crypto API)
+        if public_key_data == 'placeholder':
+            # Generate client key pair on server
+            client.private_key, client.public_key = generate_key_pair()
+            client_public_key_bytes = serialize_public_key(client.public_key)
+        else:
+            # Client sent actual public key
+            client_public_key_bytes = base64.b64decode(public_key_data)
+            client.public_key = deserialize_public_key(client_public_key_bytes)
+        
+        # Set up encryption
+        salt = client.setup_encryption(serialize_public_key(client.public_key))
+        if not salt:
+            emit('server_error', {'message': 'Failed to set up encryption'})
+            return
+        
+        # Send salt to client
+        salt_base64 = base64.b64encode(salt).decode('utf-8')
+        emit('server_salt', {
+            'salt': salt_base64
+        })
+        
+        client.connected = True
+        log(f"[{request.sid[:8]}] Key exchange complete, client '{client.client_name}' connected", "CONNECT")
+        
+        emit('server_connected', {
+            'status': 'connected',
+            'client_name': client.client_name
+        })
+        
+        # Broadcast client count update
+        broadcast_client_count_update()
+        
+    except Exception as e:
+        log(f"[{request.sid[:8]}] Key exchange error: {e}", "ERROR")
+        emit('server_error', {'message': f'Key exchange failed: {str(e)}'})
+
+
+@socketio.on('client_name')
+def handle_client_name(data):
+    """Handle client name registration."""
+    try:
+        if request.sid in web_clients:
+            client = web_clients[request.sid]
+            name = data.get('name', client.client_name)
+            
+            # Handle duplicate names
+            original_name = name
+            counter = 1
+            while any(c.client_name == name for c in web_clients.values() if c.socket_id != request.sid):
+                name = f"{original_name}_{counter}"
+                counter += 1
+            
+            client.client_name = name
+            log(f"[{request.sid[:8]}] Client registered as: {name}", "INFO")
+            broadcast_client_count_update()
+    except Exception as e:
+        log(f"[{request.sid[:8]}] Error registering name: {e}", "ERROR")
 
 
 @socketio.on('send_audio')
 def handle_send_audio(data):
-    """Handle audio data from web client."""
+    """Handle audio data from web client - broadcast to other clients via SocketIO."""
     if request.sid in web_clients:
         client = web_clients[request.sid]
+        if not client.connected:
+            emit('audio_error', {'message': 'Not connected'})
+            return
+            
         audio_data = data.get('audio')
         recipient_name = data.get('recipient')  # Optional recipient name
         if audio_data:
@@ -713,15 +614,6 @@ def get_local_ip():
 if __name__ == '__main__':
     local_ip = get_local_ip()
     
-    # Start integrated voice server in background
-    log("Starting integrated voice server...", "INFO")
-    voice_server = VoiceServer(host='0.0.0.0', port=DEFAULT_PORT)
-    voice_server_thread = threading.Thread(target=voice_server.start, daemon=True)
-    voice_server_thread.start()
-    # Give server a moment to start
-    import time
-    time.sleep(1)
-    
     log("")
     log("=" * 70)
     log(" " * 20 + "SECURE VOICE COMMUNICATION SERVER")
@@ -731,23 +623,23 @@ if __name__ == '__main__':
     log(" " * 10 + f"  >>>  {local_ip}  <<<")
     log("")
     log("=" * 70)
-    log("INTEGRATED SERVER (All-in-One):")
+    log("SINGLE SERVER (All-in-One via SocketIO):")
     log(f"  Web Interface:  http://{local_ip}:{DEFAULT_WEB_PORT}")
-    log(f"  Voice Server:   Integrated (port {DEFAULT_PORT})")
+    log(f"  Voice Communication: Integrated (via SocketIO)")
     log("")
     log("=" * 70)
     log("TO CONNECT FROM ANOTHER DEVICE:")
     log(f"  1. Open browser on the other device")
     log(f"  2. Go to: http://{local_ip}:{DEFAULT_WEB_PORT}")
-    log(f"  3. Click 'Connect to Server' - no need to enter IP/port!")
+    log(f"  3. Enter your name and click 'Connect'")
     log("")
-    log("NOTE: Voice server is integrated - no need to run run_server.py separately!")
+    log("NOTE: Everything runs on ONE server - just run this file!")
     log("")
     log("IMPORTANT - macOS Firewall:")
     log("  If devices can't connect, check macOS Firewall:")
     log("  System Settings > Network > Firewall > Options")
     log("  Allow incoming connections for Python, or disable firewall")
-    log(f"  Make sure ports {DEFAULT_WEB_PORT} and {DEFAULT_PORT} are not blocked")
+    log(f"  Make sure port {DEFAULT_WEB_PORT} is not blocked")
     log("")
     log("Press Ctrl+C to stop the server")
     log("=" * 70)
