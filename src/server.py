@@ -21,16 +21,19 @@ def get_local_ip():
     """Get the local IP address of this machine (cross-platform)."""
     try:
         # Connect to a remote address to determine local IP
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(0)
-        try:
-            s.connect(('10.254.254.254', 1))
-            ip = s.getsockname()[0]
-        except Exception:
-            ip = '127.0.0.1'
-        finally:
-            s.close()
-        return ip
+        # Try multiple common gateway addresses
+        for gateway in ['8.8.8.8', '1.1.1.1', '10.254.254.254']:
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.settimeout(1)
+                s.connect((gateway, 80))
+                ip = s.getsockname()[0]
+                s.close()
+                if ip and not ip.startswith('127.'):
+                    return ip
+            except Exception:
+                continue
+        return '127.0.0.1'
     except Exception:
         try:
             hostname = socket.gethostname()
@@ -49,12 +52,30 @@ def get_local_ip():
                                 if not match.startswith('127.'):
                                     return match
                 else:
-                    # Linux/Mac: use hostname -I
-                    result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
-                    if result.returncode == 0 and result.stdout.strip():
-                        ip = result.stdout.strip().split()[0]
-                        if not ip.startswith('127.'):
-                            return ip
+                    # macOS: use ipconfig getifaddr
+                    if platform.system() == 'Darwin':  # macOS
+                        # Try Wi-Fi interface (en0) first, then Ethernet (en1)
+                        for interface in ['en0', 'en1', 'en2']:
+                            result = subprocess.run(['ipconfig', 'getifaddr', interface], capture_output=True, text=True)
+                            if result.returncode == 0 and result.stdout.strip():
+                                ip = result.stdout.strip()
+                                if not ip.startswith('127.'):
+                                    return ip
+                        # Fallback: use ifconfig
+                        result = subprocess.run(['ifconfig'], capture_output=True, text=True)
+                        if result.returncode == 0:
+                            # Look for inet addresses (not loopback)
+                            matches = re.findall(r'inet (\d+\.\d+\.\d+\.\d+)', result.stdout)
+                            for match in matches:
+                                if not match.startswith('127.'):
+                                    return match
+                    else:
+                        # Linux: use hostname -I
+                        result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
+                        if result.returncode == 0 and result.stdout.strip():
+                            ip = result.stdout.strip().split()[0]
+                            if not ip.startswith('127.'):
+                                return ip
             return ip
         except Exception:
             return '127.0.0.1'
@@ -116,6 +137,12 @@ class VoiceServer:
         self.log("TO CONNECT FROM ANOTHER DEVICE:")
         self.log(f"  Use Server Host: {local_ip}")
         self.log(f"  Use Server Port: {self.port}")
+        self.log("")
+        self.log("IMPORTANT - macOS Firewall:")
+        self.log("  If devices can't connect, check macOS Firewall:")
+        self.log("  System Settings > Network > Firewall > Options")
+        self.log("  Allow incoming connections for Python, or disable firewall")
+        self.log(f"  Make sure port {self.port} is not blocked")
         self.log("")
         self.log("Waiting for clients...")
         self.log("=" * 70)

@@ -2120,12 +2120,30 @@
         });
         
         socket.on('server_info', (data) => {
-            // Don't auto-fill - user will enter IP manually
-            // Just update placeholder as a hint
-            if (data && data.server_ip) {
+            // If server is integrated, hide host/port fields and auto-connect
+            if (data && data.integrated) {
+                const serverHostInput = document.getElementById('server-host');
+                const serverPortInput = document.getElementById('server-port');
+                const serverHostLabel = document.querySelector('label[for="server-host"]');
+                const serverPortLabel = document.querySelector('label[for="server-port"]');
+                
+                // Hide host/port fields since they're not needed
+                if (serverHostInput) {
+                    serverHostInput.style.display = 'none';
+                    serverHostInput.value = 'localhost'; // Set to localhost for integrated server
+                }
+                if (serverPortInput) {
+                    serverPortInput.style.display = 'none';
+                    serverPortInput.value = data.port || 8888;
+                }
+                if (serverHostLabel) serverHostLabel.style.display = 'none';
+                if (serverPortLabel) serverPortLabel.style.display = 'none';
+                
+                console.log('Server is integrated - host/port fields hidden');
+            } else if (data && data.server_ip) {
+                // Legacy mode - show hint
                 const serverHostInput = document.getElementById('server-host');
                 if (serverHostInput) {
-                    // Only update placeholder if field is empty
                     if (serverHostInput.value === '' || serverHostInput.value === 'localhost') {
                         serverHostInput.placeholder = `Enter server IP (e.g., ${data.server_ip})`;
                     }
@@ -2525,8 +2543,13 @@
             if (isConnected) {
                 socket.emit('disconnect_from_server');
             } else {
-                const host = document.getElementById('server-host').value;
-                const port = parseInt(document.getElementById('server-port').value);
+                // For integrated server, use localhost and default port
+                // Host/port fields may be hidden, so get value or use defaults
+                const hostInput = document.getElementById('server-host');
+                const portInput = document.getElementById('server-port');
+                const host = hostInput && hostInput.value ? hostInput.value : 'localhost';
+                const port = portInput && portInput.value ? parseInt(portInput.value) : 8888;
+                
                 const nameInput = document.getElementById('client-name');
                 const name = nameInput ? nameInput.value.trim() : '';
                 

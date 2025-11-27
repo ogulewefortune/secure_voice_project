@@ -17,6 +17,7 @@ from src.network_protocol import establish_connection, send_message, receive_mes
 from src.crypto_utils import generate_key_pair, serialize_public_key, deserialize_public_key, derive_shared_secret, derive_aes_key, encrypt_data, decrypt_data
 from src.audio_compression import compress_to_64kbps, calculate_snr, add_integrity_check, verify_integrity
 from src.intrusion_detection import get_ids, ThreatType
+from src.server import VoiceServer
 
 def log(message, level="INFO"):
     """Log a message with timestamp."""
@@ -29,6 +30,10 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Store web client connections
 web_clients = {}
+
+# Initialize integrated voice server (runs in background)
+voice_server = None
+voice_server_thread = None
 
 # Initialize IDS and register alert callback for web interface
 ids = get_ids()
@@ -356,8 +361,8 @@ def handle_connect():
     log(f"Web client connected: {request.sid[:8]}...", "CONNECT")
     server_ip = get_local_ip()
     emit('connected', {'status': 'ok', 'server_ip': server_ip})
-    # Also send server info
-    emit('server_info', {'server_ip': server_ip, 'port': DEFAULT_PORT})
+    # Also send server info - voice server is integrated, so use localhost
+    emit('server_info', {'server_ip': 'localhost', 'port': DEFAULT_PORT, 'integrated': True})
 
 
 @socketio.on('disconnect')
@@ -394,11 +399,23 @@ def broadcast_client_count_update():
 def handle_connect_to_server(data):
     """Handle request to connect to voice server."""
     try:
-        host = data.get('host', DEFAULT_HOST)
-        port = data.get('port', DEFAULT_PORT)
+        # Always connect to localhost since voice server is integrated
+        host = 'localhost'  # Integrated server runs locally
+        port = DEFAULT_PORT
         client_name = data.get('client_name', f"Client_{request.sid[:8]}")
         
-        log(f"[{request.sid[:8]}] Connecting to voice server at {host}:{port} as '{client_name}'...", "CONNECT")
+        # Make sure integrated voice server is running
+        global voice_server, voice_server_thread
+        if voice_server is None or not voice_server.running:
+            log("Starting integrated voice server...", "INFO")
+            voice_server = VoiceServer(host='0.0.0.0', port=DEFAULT_PORT)
+            voice_server_thread = threading.Thread(target=voice_server.start, daemon=True)
+            voice_server_thread.start()
+            # Give server a moment to start
+            import time
+            time.sleep(0.5)
+        
+        log(f"[{request.sid[:8]}] Connecting to integrated voice server at {host}:{port} as '{client_name}'...", "CONNECT")
         client = WebVoiceClient(request.sid, host, port, client_name=client_name)
         if client.connect():
             web_clients[request.sid] = client
@@ -413,25 +430,18 @@ def handle_connect_to_server(data):
             broadcast_client_count_update()
         else:
             log(f"[{request.sid[:8]}] Failed to connect to voice server", "ERROR")
-            error_msg = f"Failed to connect to voice server at {host}:{port}"
+            error_msg = f"Failed to connect to integrated voice server"
             troubleshooting = []
             troubleshooting.append("Possible issues:")
-            troubleshooting.append("1. Voice server is not running on the server machine")
-            troubleshooting.append("2. Windows Firewall is blocking port 8888")
-            troubleshooting.append("3. Wrong IP address - verify the server IP is correct")
-            troubleshooting.append("4. Both devices must be on the same network")
+            troubleshooting.append("1. Integrated voice server failed to start")
+            troubleshooting.append("2. Port 8888 may be in use by another process")
+            troubleshooting.append("3. macOS Firewall may be blocking port 8888")
             troubleshooting.append("")
-            troubleshooting.append("On the server (Lenovo):")
-            troubleshooting.append("- Make sure voice server is running: python3 run_server.py")
-            troubleshooting.append("- Check Windows Firewall: Allow port 8888")
-            troubleshooting.append("- Verify IP address shown in server startup")
-            troubleshooting.append("")
-            troubleshooting.append("On your Mac:")
-            troubleshooting.append(f"- Verify you're using the correct IP: {host}")
-            troubleshooting.append(f"- Verify port: {port}")
-            troubleshooting.append("- Try pinging the server: ping " + host)
+            troubleshooting.append("Troubleshooting:")
+            troubleshooting.append("- Check if port 8888 is available: lsof -i :8888")
+            troubleshooting.append("- Check macOS Firewall settings")
+            troubleshooting.append("- Try restarting the web server")
             
-            full_message = error_msg + "\n\n" + "\n".join(troubleshooting)
             emit('server_error', {
                 'message': error_msg,
                 'troubleshooting': troubleshooting,
@@ -443,8 +453,8 @@ def handle_connect_to_server(data):
         emit('server_error', {
             'message': f'Connection error: {error_msg}',
             'error': error_msg,
-            'host': data.get('host', 'unknown'),
-            'port': data.get('port', 'unknown')
+            'host': 'localhost',
+            'port': DEFAULT_PORT
         })
 
 
@@ -593,16 +603,19 @@ def get_local_ip():
     """Get the local IP address of this machine (cross-platform)."""
     try:
         # Connect to a remote address to determine local IP
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.settimeout(0)
-        try:
-            s.connect(('10.254.254.254', 1))
-            ip = s.getsockname()[0]
-        except Exception:
-            ip = '127.0.0.1'
-        finally:
-            s.close()
-        return ip
+        # Try multiple common gateway addresses
+        for gateway in ['8.8.8.8', '1.1.1.1', '10.254.254.254']:
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.settimeout(1)
+                s.connect((gateway, 80))
+                ip = s.getsockname()[0]
+                s.close()
+                if ip and not ip.startswith('127.'):
+                    return ip
+            except Exception:
+                continue
+        return '127.0.0.1'
     except Exception:
         try:
             import platform
@@ -624,13 +637,33 @@ def get_local_ip():
                                 if not match.startswith('127.'):
                                     return match
                 else:
-                    # Linux/Mac: use hostname -I
-                    import subprocess
-                    result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
-                    if result.returncode == 0 and result.stdout.strip():
-                        ip = result.stdout.strip().split()[0]
-                        if not ip.startswith('127.'):
-                            return ip
+                    # macOS: use ipconfig getifaddr
+                    import platform
+                    if platform.system() == 'Darwin':  # macOS
+                        # Try Wi-Fi interface (en0) first, then Ethernet (en1)
+                        for interface in ['en0', 'en1', 'en2']:
+                            result = subprocess.run(['ipconfig', 'getifaddr', interface], capture_output=True, text=True)
+                            if result.returncode == 0 and result.stdout.strip():
+                                ip = result.stdout.strip()
+                                if not ip.startswith('127.'):
+                                    return ip
+                        # Fallback: use ifconfig
+                        result = subprocess.run(['ifconfig'], capture_output=True, text=True)
+                        if result.returncode == 0:
+                            import re
+                            # Look for inet addresses (not loopback)
+                            matches = re.findall(r'inet (\d+\.\d+\.\d+\.\d+)', result.stdout)
+                            for match in matches:
+                                if not match.startswith('127.'):
+                                    return match
+                    else:
+                        # Linux: use hostname -I
+                        import subprocess
+                        result = subprocess.run(['hostname', '-I'], capture_output=True, text=True)
+                        if result.returncode == 0 and result.stdout.strip():
+                            ip = result.stdout.strip().split()[0]
+                            if not ip.startswith('127.'):
+                                return ip
             return ip
         except Exception:
             return '127.0.0.1'
@@ -638,6 +671,16 @@ def get_local_ip():
 
 if __name__ == '__main__':
     local_ip = get_local_ip()
+    
+    # Start integrated voice server in background
+    log("Starting integrated voice server...", "INFO")
+    voice_server = VoiceServer(host='0.0.0.0', port=DEFAULT_PORT)
+    voice_server_thread = threading.Thread(target=voice_server.start, daemon=True)
+    voice_server_thread.start()
+    # Give server a moment to start
+    import time
+    time.sleep(1)
+    
     log("")
     log("=" * 70)
     log(" " * 20 + "SECURE VOICE COMMUNICATION SERVER")
@@ -647,22 +690,25 @@ if __name__ == '__main__':
     log(" " * 10 + f"  >>>  {local_ip}  <<<")
     log("")
     log("=" * 70)
-    log("WEB SERVER (Port 5000):")
-    log(f"  Local access:   http://localhost:5000")
-    log(f"  Network access: http://{local_ip}:5000")
-    log("")
-    log("VOICE SERVER (Port 8888):")
-    log(f"  Server IP:      {local_ip}")
-    log(f"  Port:           8888")
+    log("INTEGRATED SERVER (All-in-One):")
+    log(f"  Web Interface:  http://{local_ip}:5000")
+    log(f"  Voice Server:   Integrated (port {DEFAULT_PORT})")
     log("")
     log("=" * 70)
     log("TO CONNECT FROM ANOTHER DEVICE:")
     log(f"  1. Open browser on the other device")
     log(f"  2. Go to: http://{local_ip}:5000")
-    log(f"  3. Enter Server Host: {local_ip}")
-    log(f"  4. Enter Server Port: 8888")
+    log(f"  3. Click 'Connect to Server' - no need to enter IP/port!")
     log("")
-    log("Make sure the voice server is running on port 8888")
+    log("NOTE: Voice server is integrated - no need to run run_server.py separately!")
+    log("")
+    log("IMPORTANT - macOS Firewall:")
+    log("  If devices can't connect, check macOS Firewall:")
+    log("  System Settings > Network > Firewall > Options")
+    log("  Allow incoming connections for Python, or disable firewall")
+    log("  Make sure ports 5000 and 8888 are not blocked")
+    log("")
+    log("Press Ctrl+C to stop the server")
     log("=" * 70)
     log("")
     socketio.run(app, host='0.0.0.0', port=5000, debug=False, allow_unsafe_werkzeug=True)
