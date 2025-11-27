@@ -57,13 +57,13 @@ def quantize_audio(audio_data, bits=8):
 
 def compress_to_64kbps(audio_data, sample_rate=8000, bits=8):
     """
-    Compress audio to meet 64 Kbps requirement.
-    
+    Compress audio to meet 64 Kbps requirement with improved quality preservation.
+
     Args:
         audio_data: numpy array of audio samples
         sample_rate: sample rate in Hz (default 8000 for 64 Kbps)
         bits: bits per sample (default 8)
-    
+
     Returns:
         compressed_audio: compressed audio data (as uint8 for 8-bit, int16 for higher)
         snr_db: SNR in dB
@@ -72,23 +72,31 @@ def compress_to_64kbps(audio_data, sample_rate=8000, bits=8):
     # Ensure audio is int16
     if audio_data.dtype != np.int16:
         audio_data = audio_data.astype(np.int16)
-    
+
     # Quantize to target bit depth
     quantized_int16, snr_db = quantize_audio(audio_data, bits)
-    
+
     # Convert to actual 8-bit format (uint8) for size reduction
     if bits == 8:
-        # Convert from int16 range [-32768, 32767] to uint8 range [0, 255]
-        # Map: -32768 -> 0, 0 -> 128, 32767 -> 255
-        quantized_uint8 = ((quantized_int16.astype(np.int32) + 32768) // 256).astype(np.uint8)
+        # Improved conversion: preserve more dynamic range
+        # First normalize to float [-1.0, 1.0]
+        normalized = quantized_int16.astype(np.float32) / 32768.0
+
+        # Apply slight compression to preserve quieter sounds
+        # This helps prevent white noise from quantization
+        normalized = np.sign(normalized) * np.sqrt(np.abs(normalized))
+
+        # Convert to uint8 [0, 255] with proper rounding
+        # Map: -1.0 -> 0, 0.0 -> 128, 1.0 -> 255
+        quantized_uint8 = np.clip((normalized * 127.5) + 127.5, 0, 255).astype(np.uint8)
         compressed_audio = quantized_uint8
     else:
         # For other bit depths, keep as int16
         compressed_audio = quantized_int16
-    
+
     # Calculate actual bitrate
     bitrate = sample_rate * bits
-    
+
     return compressed_audio, snr_db, bitrate
 
 
