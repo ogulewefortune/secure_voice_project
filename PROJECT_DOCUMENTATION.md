@@ -32,7 +32,7 @@
 - ✅ **Automatic decryption** and playback
 
 ### Project Goals
-- Achieve SNR ≤ 40 dB
+- Achieve SNR >= 40 dB
 - Maintain bitrate ≤ 64 Kbps
 - Provide protection against:
   - Eavesdropping attacks
